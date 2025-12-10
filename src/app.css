@@ -250,7 +250,6 @@
   background: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: relative;
   display: flex;
@@ -263,8 +262,8 @@
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  display: flex;
-  flex-direction: column;
+  padding: 1rem;
+  padding-top: 0.5rem;
 }
 
 .waveform-view {
@@ -272,6 +271,27 @@
   flex: 1;
   min-height: 200px;
   flex-shrink: 0;
+}
+
+.waveform-view wave {
+  cursor: pointer;
+}
+
+.waveform-view wave wave {
+  cursor: pointer;
+}
+
+.waveform-view [data-name="cursor"] {
+  width: 3px !important;
+  background: #4a9eff !important;
+  box-shadow:
+    0 0 8px rgba(74, 158, 255, 0.8),
+    0 0 4px rgba(74, 158, 255, 0.6) !important;
+  z-index: 10 !important;
+}
+
+.waveform-view [data-name="progress"] {
+  background: rgba(74, 158, 255, 0.4) !important;
 }
 
 .waveform-scroll-wrapper::-webkit-scrollbar {
@@ -377,9 +397,14 @@
   left: 0;
   height: 100%;
   background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-primary-hover) 100%);
-  border-radius: 3px;
+  border-radius: 4px;
   transition: width 0.1s linear;
-  box-shadow: 0 0 8px rgba(74, 158, 255, 0.5);
+  box-shadow: 0 0 12px rgba(74, 158, 255, 0.6);
+}
+
+.playback-controls__play-button .floating-button {
+  width: 48px;
+  height: 48px;
 }
 
 .selection-toolbar {
@@ -928,11 +953,16 @@
 
 .time-ruler {
   position: relative;
-  height: 36px;
+  height: 40px;
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
+  background: linear-gradient(to bottom, var(--color-bg-elevated) 0%, var(--color-bg) 100%);
   width: 100%;
   flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  margin-bottom: 0.5rem;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
 }
 
 .time-ruler-marker {
@@ -951,16 +981,18 @@
 
 .time-ruler-label {
   position: absolute;
-  top: 8px;
+  top: 10px;
   left: 4px;
   font-size: 0.6875rem;
   font-weight: 500;
-  color: var(--color-text-secondary);
+  color: var(--color-text);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  background: var(--color-bg);
-  padding: 2px 4px;
+  background: var(--color-bg-elevated);
+  padding: 2px 6px;
   line-height: 1.2;
+  border-radius: 3px;
+  border: 1px solid var(--color-border);
 }
 
 .time-ruler {
