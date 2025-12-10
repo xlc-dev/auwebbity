@@ -18,8 +18,8 @@ export const SelectionToolbar: Component<SelectionToolbarProps> = (props) => {
 
   return (
     <Show when={shouldShow()}>
-      <div class="fixed bottom-[calc(0.5rem+45px)] sm:bottom-[calc(0.75rem+50px)] md:bottom-[calc(1rem+55px)] left-1/2 -translate-x-1/2 z-[99]">
-        <div class="flex gap-1 sm:gap-1.5 px-1.5 sm:px-2 py-2 sm:py-2.5 bg-[var(--color-bg-elevated)] border-x border-t border-[var(--color-border)] rounded-t-xl backdrop-blur-[10px] relative">
+      <div class="fixed bottom-[calc(0.375rem+45px)] sm:bottom-[calc(0.5rem+50px)] md:bottom-[calc(0.75rem+55px)] lg:bottom-[calc(1rem+55px)] left-1/2 -translate-x-1/2 z-[99]">
+        <div class="flex gap-1 sm:gap-1.5 px-1 sm:px-1.5 md:px-2 py-1.5 sm:py-2 md:py-2.5 bg-[var(--color-bg-elevated)] border-x border-t border-[var(--color-border)] rounded-t-lg sm:rounded-t-xl backdrop-blur-[10px] relative">
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

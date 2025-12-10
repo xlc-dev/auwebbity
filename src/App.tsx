@@ -173,7 +173,7 @@ export default function App() {
         style={{ display: "none" }}
       />
       <Show when={isInitialized()}>
-        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 pb-[80px] sm:pb-[90px] md:pb-[100px] border-t border-[var(--color-border)]">
+        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 pb-[70px] sm:pb-[80px] md:pb-[90px] lg:pb-[100px] border-t border-[var(--color-border)]">
           <WaveformView onWaveformReady={setWaveformRef} />
         </div>
       </Show>
@@ -196,12 +196,21 @@ export default function App() {
           } else {
             try {
               await recorder.startRecording();
+              // Only check for errors if no exception was thrown
+              if (recorder.error()) {
+                addToast(recorder.error()!);
+                recorder.clearError();
+              }
             } catch (err) {
-              addToast(err instanceof Error ? err.message : "Failed to start recording");
-            }
-            if (recorder.error()) {
-              addToast(recorder.error()!);
-              recorder.clearError();
+              // If an error was thrown, check if recorder also has an error set
+              // to avoid duplicate toasts
+              const recorderError = recorder.error();
+              if (recorderError) {
+                addToast(recorderError);
+                recorder.clearError();
+              } else {
+                addToast(err instanceof Error ? err.message : "Failed to start recording");
+              }
             }
           }
         }}

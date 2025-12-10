@@ -31,11 +31,13 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
         onClick={props.onClose}
       >
         <div
-          class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-xl max-w-[600px] w-[90%] max-h-[80vh] overflow-y-auto"
+          class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg sm:rounded-xl max-w-[600px] w-[95%] sm:w-[90%] max-h-[85vh] sm:max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          <div class="flex items-center justify-between py-6 px-6 border-b border-[var(--color-border)]">
-            <h2 class="m-0 text-xl font-semibold text-[var(--color-text)]">Keyboard Shortcuts</h2>
+          <div class="flex items-center justify-between py-4 sm:py-6 px-4 sm:px-6 border-b border-[var(--color-border)]">
+            <h2 class="m-0 text-lg sm:text-xl font-semibold text-[var(--color-text)]">
+              Keyboard Shortcuts
+            </h2>
             <button
               class="flex-shrink-0 bg-none border-0 text-[var(--color-text-secondary)] cursor-pointer p-2 flex items-center justify-center rounded-md transition-all duration-150 hover:bg-[var(--color-border)] hover:text-[var(--color-text)]"
               onClick={props.onClose}
@@ -46,24 +48,26 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
               </svg>
             </button>
           </div>
-          <div class="p-4">
+          <div class="p-3 sm:p-4">
             {shortcuts.map((shortcut) => {
               const keys = isMac() && shortcut.mac ? shortcut.mac : shortcut.keys;
               return (
-                <div class="flex items-center justify-between py-3 border-b border-[var(--color-border)] last:border-b-0">
-                  <div class="flex items-center gap-1">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 py-2.5 sm:py-3 border-b border-[var(--color-border)] last:border-b-0">
+                  <div class="flex items-center gap-1 flex-wrap">
                     {keys.map((key, index) => (
                       <>
-                        <kbd class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded py-1 px-2 text-xs font-semibold text-[var(--color-text)] font-mono min-w-6 text-center">
+                        <kbd class="bg-[var(--color-bg)] border border-[var(--color-border)] rounded py-0.5 sm:py-1 px-1.5 sm:px-2 text-[0.625rem] sm:text-xs font-semibold text-[var(--color-text)] font-mono min-w-5 sm:min-w-6 text-center">
                           {key}
                         </kbd>
                         {index < keys.length - 1 && (
-                          <span class="text-[var(--color-text-secondary)] text-xs mx-1">+</span>
+                          <span class="text-[var(--color-text-secondary)] text-[0.625rem] sm:text-xs mx-0.5 sm:mx-1">
+                            +
+                          </span>
                         )}
                       </>
                     ))}
                   </div>
-                  <span class="text-[var(--color-text-secondary)] text-sm">
+                  <span class="text-[var(--color-text-secondary)] text-xs sm:text-sm">
                     {shortcut.description}
                   </span>
                 </div>

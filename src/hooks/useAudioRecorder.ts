@@ -79,8 +79,8 @@ export const useAudioRecorder = () => {
         }
       };
 
-      mediaRecorder.start();
       setIsRecording(true);
+      mediaRecorder.start(100);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to start recording";
       setError(errorMessage);

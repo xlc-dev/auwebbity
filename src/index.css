@@ -18,16 +18,6 @@
   --color-shadow: rgba(0, 0, 0, 0.3);
 }
 
-@keyframes recordingPulse {
-  0%,
-  100% {
-    box-shadow: 0 2px 8px rgba(248, 81, 73, 0.4);
-  }
-  50% {
-    box-shadow: 0 2px 16px rgba(248, 81, 73, 0.6);
-  }
-}
-
 @keyframes dropdownSlideDown {
   from {
     opacity: 0;

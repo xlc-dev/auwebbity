@@ -112,7 +112,7 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
   return (
     <div
-      class="relative w-full h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"
+      class="relative w-full h-5 sm:h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"
       style={{ width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%" }}
     >
       {markers().map((marker) => (
@@ -121,7 +121,7 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
           style={{ left: `${marker.position}px` }}
         >
           <div class="w-px h-full bg-[var(--color-border)] opacity-30" />
-          <span class="absolute top-0.5 left-0.5 text-[0.625rem] font-medium text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
+          <span class="absolute top-0.5 left-0.5 text-[0.5rem] sm:text-[0.625rem] font-medium text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
             {formatTime(marker.time)}
           </span>
         </div>

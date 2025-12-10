@@ -20,20 +20,20 @@ export const Toast: Component<ToastProps> = (props) => {
 
   return (
     <div
-      class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg py-3.5 px-4 animate-[toastSlideIn_0.3s_ease-out] min-w-[300px]"
+      class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg py-2.5 sm:py-3.5 px-3 sm:px-4 animate-[toastSlideIn_0.3s_ease-out] min-w-[250px] sm:min-w-[300px] max-w-[calc(100vw-2rem)]"
       classList={{
         "border-l-4 border-l-[#f85149]": props.type === "error" || !props.type,
         "border-l-4 border-l-[#3fb950]": props.type === "success",
         "border-l-4 border-l-[var(--color-primary)]": props.type === "info",
       }}
     >
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 sm:gap-3">
         <svg
-          width="20"
-          height="20"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
           fill="currentColor"
-          class="flex-shrink-0"
+          class="flex-shrink-0 sm:w-5 sm:h-5"
           classList={{
             "text-[#f85149]": props.type === "error" || !props.type,
             "text-[#3fb950]": props.type === "success",
@@ -48,7 +48,9 @@ export const Toast: Component<ToastProps> = (props) => {
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
           )}
         </svg>
-        <span class="flex-1 text-sm text-[var(--color-text)] leading-snug">{props.message}</span>
+        <span class="flex-1 text-xs sm:text-sm text-[var(--color-text)] leading-snug">
+          {props.message}
+        </span>
         <button
           class="flex-shrink-0 bg-none border-0 text-[var(--color-text-secondary)] cursor-pointer p-1 flex items-center justify-center rounded transition-all duration-150 hover:bg-[var(--color-border)] hover:text-[var(--color-text)]"
           onClick={props.onDismiss}
@@ -70,7 +72,7 @@ interface ToastContainerProps {
 
 export const ToastContainer: Component<ToastContainerProps> = (props) => {
   return (
-    <div class="fixed bottom-4 right-4 z-[1000] flex flex-col gap-2 max-w-[400px]">
+    <div class="fixed bottom-2 sm:bottom-4 right-2 sm:right-4 z-[1000] flex flex-col gap-2 max-w-[calc(100vw-1rem)] sm:max-w-[400px]">
       {props.toasts.map((toast) => (
         <Toast
           message={toast.message}

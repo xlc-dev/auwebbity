@@ -85,7 +85,7 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   };
 
   return (
-    <div class="flex items-center gap-2 sm:gap-3 md:gap-4 justify-center flex-1 min-w-0">
+    <div class="flex items-center gap-1.5 sm:gap-2 md:gap-3 lg:gap-4 justify-center flex-1 min-w-0 w-full">
       <div class="flex gap-1 sm:gap-1.5">
         <Button
           icon={
@@ -116,14 +116,14 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
           variant="secondary"
         />
       </div>
-      <div class="flex items-center gap-1 text-xs sm:text-[0.8125rem] font-medium text-[var(--color-text-secondary)] tabular-nums min-w-[60px] sm:min-w-[80px] justify-center">
+      <div class="flex items-center gap-0.5 sm:gap-1 text-[0.625rem] sm:text-xs md:text-[0.8125rem] font-medium text-[var(--color-text-secondary)] tabular-nums min-w-[50px] sm:min-w-[60px] md:min-w-[80px] justify-center">
         <span>{formatTime(store.currentTime)}</span>
-        <span class="mx-1 text-[var(--color-text-secondary)]">/</span>
+        <span class="mx-0.5 sm:mx-1 text-[var(--color-text-secondary)]">/</span>
         <span>{formatTime(duration())}</span>
       </div>
       <div
         ref={seekbarRef}
-        class="relative w-[150px] sm:w-[200px] md:w-[250px] lg:w-[300px] h-1.5 bg-[var(--color-border)] rounded-sm cursor-pointer overflow-hidden transition-[height] duration-200 hover:h-2"
+        class="relative w-[100px] sm:w-[120px] md:w-[150px] lg:w-[200px] xl:w-[250px] 2xl:w-[300px] h-1.5 bg-[var(--color-border)] rounded-sm cursor-pointer overflow-hidden transition-[height] duration-200 hover:h-2"
         onClick={handleSeek}
         onMouseDown={handleMouseDown}
       >
