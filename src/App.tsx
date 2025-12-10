@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount, onCleanup, createEffect } from "solid-js";
+import { createSignal, Show, onMount, createEffect } from "solid-js";
 import { WaveformView } from "./components/WaveformView";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { SelectionToolbar } from "./components/SelectionToolbar";
@@ -12,23 +12,13 @@ import { Spinner } from "./components/Spinner";
 import { useAudioStore, initializeStore } from "./stores/audioStore";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { useWaveform } from "./hooks/useWaveform";
+import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
+import { useFileImport } from "./hooks/useFileImport";
+import { useAudioOperations } from "./hooks/useAudioOperations";
 import { audioOperations } from "./utils/audioOperations";
 
 export default function App() {
-  const {
-    store,
-    addTrack,
-    setSelection,
-    setClipboard,
-    getCurrentTrack,
-    setAudioStore,
-    resetStore,
-    saveToHistory,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-  } = useAudioStore();
+  const { store, getCurrentTrack, resetStore, undo, redo, canUndo, canRedo } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
   const [toasts, setToasts] = createSignal<
@@ -37,8 +27,12 @@ export default function App() {
   const [isInitialized, setIsInitialized] = createSignal(false);
   const [showResetDialog, setShowResetDialog] = createSignal(false);
   const [showShortcuts, setShowShortcuts] = createSignal(false);
-  const [isLoading, setIsLoading] = createSignal(false);
+  const [isExporting, setIsExporting] = createSignal(false);
+  const [exportFormat, setExportFormat] = createSignal<"wav" | "mp3" | "ogg">("wav");
   let fileInputRef: HTMLInputElement | undefined;
+
+  const fileImport = useFileImport();
+  const audioOps = useAudioOperations();
 
   const addToast = (message: string, type: "error" | "success" | "info" = "error") => {
     const id = crypto.randomUUID();
@@ -49,121 +43,11 @@ export default function App() {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    const target = e.target as HTMLElement;
-    const isInput =
-      target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
-
-    if (e.code === "Space" || e.key === " ") {
-      if (isInput) return;
-
-      e.preventDefault();
-      const waveform = waveformRef();
-      if (!waveform) return;
-
-      const currentTrack = getCurrentTrack();
-      if (!currentTrack) return;
-
-      if (store.isPlaying) {
-        waveform.pause();
-      } else {
-        waveform.play();
-      }
-      return;
-    }
-
-    if (isInput) return;
-
-    if ((e.ctrlKey || e.metaKey) && e.key === "x") {
-      e.preventDefault();
-      if (store.selection) {
-        handleCut();
-      }
-      return;
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === "c") {
-      e.preventDefault();
-      if (store.selection) {
-        handleCopy();
-      }
-      return;
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-      e.preventDefault();
-      if (store.clipboard) {
-        handlePaste();
-      }
-      return;
-    }
-
-    if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
-      e.preventDefault();
-      handleUndo();
-      return;
-    }
-
-    if ((e.ctrlKey || e.metaKey) && (e.key === "y" || (e.key === "z" && e.shiftKey))) {
-      e.preventDefault();
-      handleRedo();
-      return;
-    }
-
-    if ((e.key === "Delete" || e.key === "Backspace") && store.selection) {
-      e.preventDefault();
-      handleDelete();
-      return;
-    }
-
-    if (e.key === "Escape" && store.selection) {
-      e.preventDefault();
-      waveformRef()?.clearSelection();
-      return;
-    }
-  };
-
-  onMount(async () => {
-    window.addEventListener("keydown", handleKeyDown);
-
-    await initializeStore();
-    setIsInitialized(true);
-  });
-
-  createEffect(() => {
-    if (isInitialized() && waveformRef()) {
-      const currentTrack = getCurrentTrack();
-      if (currentTrack?.audioUrl) {
-        waveformRef()?.loadAudio(currentTrack.audioUrl);
-      }
-    }
-  });
-
-  onCleanup(() => {
-    window.removeEventListener("keydown", handleKeyDown);
-  });
-
   const handleFileImport = async (e: Event) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-
-    setIsLoading(true);
     try {
-      const audioUrl = URL.createObjectURL(file);
-      const audioContext = new AudioContext();
-      const arrayBuffer = await file.arrayBuffer();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-      addTrack({
-        name: file.name,
-        audioBuffer,
-        audioUrl,
-        duration: audioBuffer.duration,
-      });
+      await fileImport.handleFileImport(e);
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Failed to import audio");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -172,199 +56,34 @@ export default function App() {
   };
 
   const handleCut = async () => {
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer || !store.selection) return;
-
-    setIsLoading(true);
     try {
-      await saveToHistory(currentTrack.id);
-
-      setClipboard(null);
-
-      const copiedBuffer = await audioOperations.copy(
-        currentTrack.audioBuffer,
-        store.selection.start,
-        store.selection.end
-      );
-      setClipboard(copiedBuffer);
-
-      const { before, after } = await audioOperations.cut(
-        currentTrack.audioBuffer,
-        store.selection.start,
-        store.selection.end
-      );
-
-      const audioContext = new AudioContext();
-      const newLength = before.length + after.length;
-      const newBuffer = audioContext.createBuffer(
-        currentTrack.audioBuffer.numberOfChannels,
-        newLength,
-        currentTrack.audioBuffer.sampleRate
-      );
-
-      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-        const newData = newBuffer.getChannelData(channel);
-        const beforeData = before.getChannelData(channel);
-        const afterData = after.getChannelData(channel);
-
-        for (let i = 0; i < before.length; i++) {
-          newData[i] = beforeData[i] ?? 0;
-        }
-        for (let i = 0; i < after.length; i++) {
-          newData[before.length + i] = afterData[i] ?? 0;
-        }
-      }
-
-      const blob = await audioOperations.audioBufferToBlob(newBuffer);
-      const newUrl = URL.createObjectURL(blob);
-
-      const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
-      if (trackIndex !== -1) {
-        setAudioStore("tracks", (tracks) => {
-          const newTracks = [...tracks];
-          newTracks[trackIndex] = {
-            ...currentTrack,
-            audioBuffer: newBuffer,
-            audioUrl: newUrl,
-            duration: newBuffer.duration,
-          };
-          return newTracks;
-        });
-      }
-
-      setSelection(null);
-      waveformRef()?.clearSelection();
-      const updatedTrack = getCurrentTrack();
-      if (updatedTrack?.audioUrl) {
-        waveformRef()?.loadAudio(updatedTrack.audioUrl);
-      }
+      await audioOps.handleCut(waveformRef);
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Failed to cut");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleCopy = async () => {
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer || !store.selection) return;
-
-    const copiedBuffer = await audioOperations.copy(
-      currentTrack.audioBuffer,
-      store.selection.start,
-      store.selection.end
-    );
-
-    setClipboard(copiedBuffer);
-    setSelection(null);
-    waveformRef()?.clearSelection();
+    try {
+      await audioOps.handleCopy(waveformRef);
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : "Failed to copy");
+    }
   };
 
   const handlePaste = async () => {
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer || !store.clipboard) return;
-
-    setIsLoading(true);
     try {
-      const trackId = currentTrack.id;
-      await saveToHistory(trackId);
-
-      const insertTime = store.currentTime;
-      const newBuffer = await audioOperations.paste(
-        currentTrack.audioBuffer,
-        store.clipboard,
-        insertTime
-      );
-
-      const blob = await audioOperations.audioBufferToBlob(newBuffer);
-      const newUrl = URL.createObjectURL(blob);
-
-      const trackIndex = store.tracks.findIndex((t) => t.id === trackId);
-      if (trackIndex !== -1) {
-        setAudioStore("tracks", (tracks) => {
-          const newTracks = [...tracks];
-          newTracks[trackIndex] = {
-            ...currentTrack,
-            audioBuffer: newBuffer,
-            audioUrl: newUrl,
-            duration: newBuffer.duration,
-          };
-          return newTracks;
-        });
-        const updatedTrack = getCurrentTrack();
-        if (updatedTrack?.audioUrl) {
-          waveformRef()?.loadAudio(updatedTrack.audioUrl);
-        }
-      }
+      await audioOps.handlePaste(waveformRef);
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Failed to paste");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleDelete = async () => {
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer || !store.selection) return;
-
-    setIsLoading(true);
     try {
-      await saveToHistory(currentTrack.id);
-
-      const { before, after } = await audioOperations.cut(
-        currentTrack.audioBuffer,
-        store.selection.start,
-        store.selection.end
-      );
-
-      const audioContext = new AudioContext();
-      const newLength = before.length + after.length;
-      const newBuffer = audioContext.createBuffer(
-        currentTrack.audioBuffer.numberOfChannels,
-        newLength,
-        currentTrack.audioBuffer.sampleRate
-      );
-
-      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-        const newData = newBuffer.getChannelData(channel);
-        const beforeData = before.getChannelData(channel);
-        const afterData = after.getChannelData(channel);
-
-        for (let i = 0; i < before.length; i++) {
-          newData[i] = beforeData[i] ?? 0;
-        }
-        for (let i = 0; i < after.length; i++) {
-          newData[before.length + i] = afterData[i] ?? 0;
-        }
-      }
-
-      const blob = await audioOperations.audioBufferToBlob(newBuffer);
-      const newUrl = URL.createObjectURL(blob);
-
-      const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
-      if (trackIndex !== -1) {
-        setAudioStore("tracks", (tracks) => {
-          const newTracks = [...tracks];
-          newTracks[trackIndex] = {
-            ...currentTrack,
-            audioBuffer: newBuffer,
-            audioUrl: newUrl,
-            duration: newBuffer.duration,
-          };
-          return newTracks;
-        });
-      }
-
-      setSelection(null);
-      waveformRef()?.clearSelection();
-      const updatedTrack = getCurrentTrack();
-      if (updatedTrack?.audioUrl) {
-        waveformRef()?.loadAudio(updatedTrack.audioUrl);
-      }
+      await audioOps.handleDelete(waveformRef);
     } catch (err) {
       addToast(err instanceof Error ? err.message : "Failed to delete");
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -388,20 +107,15 @@ export default function App() {
     }
   };
 
-  const [isExporting, setIsExporting] = createSignal(false);
-  const [exportFormat, setExportFormat] = createSignal<"wav" | "mp3" | "ogg">("wav");
-
   const handleReset = () => {
     setShowResetDialog(true);
   };
 
   const handleResetConfirm = async () => {
     setShowResetDialog(false);
-
     waveformRef()?.stop();
     waveformRef()?.clearSelection();
     waveformRef()?.clearAudio();
-
     await resetStore();
   };
 
@@ -413,7 +127,6 @@ export default function App() {
     }
 
     setIsExporting(true);
-
     try {
       const format = exportFormat();
       const filename = currentTrack.name
@@ -426,6 +139,32 @@ export default function App() {
       setIsExporting(false);
     }
   };
+
+  useKeyboardShortcuts({
+    waveform: waveformRef,
+    onCut: handleCut,
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onDelete: handleDelete,
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+  });
+
+  onMount(async () => {
+    await initializeStore();
+    setIsInitialized(true);
+  });
+
+  createEffect(() => {
+    if (isInitialized() && waveformRef()) {
+      const currentTrack = getCurrentTrack();
+      if (currentTrack?.audioUrl) {
+        waveformRef()?.loadAudio(currentTrack.audioUrl);
+      }
+    }
+  });
+
+  const isLoading = () => fileImport.isLoading() || audioOps.isLoading();
 
   return (
     <main class="flex flex-col h-screen overflow-hidden bg-[var(--color-bg-secondary)] relative">
