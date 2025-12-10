@@ -52,8 +52,6 @@ export const WaveformView: Component<WaveformViewProps> = (props) => {
   });
 
   const hasTracks = () => store.tracks.length > 0;
-  const currentTrack = () => store.tracks.find((t) => t.id === store.currentTrackId);
-  const trackDuration = () => currentTrack()?.duration || 0;
 
   return (
     <div class="waveform-container">

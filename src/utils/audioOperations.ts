@@ -15,7 +15,7 @@ export const audioOperations = {
       const oldData = audioBuffer.getChannelData(channel);
       const newData = newBuffer.getChannelData(channel);
       for (let i = 0; i < length; i++) {
-        newData[i] = oldData[startSample + i];
+        newData[i] = oldData[startSample + i] ?? 0;
       }
     }
 
@@ -51,11 +51,11 @@ export const audioOperations = {
       const afterData = afterBuffer.getChannelData(channel);
 
       for (let i = 0; i < beforeLength; i++) {
-        beforeData[i] = oldData[i];
+        beforeData[i] = oldData[i] ?? 0;
       }
 
       for (let i = 0; i < afterLength; i++) {
-        afterData[i] = oldData[endSample + i];
+        afterData[i] = oldData[endSample + i] ?? 0;
       }
     }
 
@@ -89,15 +89,15 @@ export const audioOperations = {
           : new Float32Array(clipboardBuffer.length);
 
       for (let i = 0; i < insertSample; i++) {
-        newData[i] = originalData[i];
+        newData[i] = originalData[i] ?? 0;
       }
 
       for (let i = 0; i < clipboardBuffer.length; i++) {
-        newData[insertSample + i] = clipboardData[i];
+        newData[insertSample + i] = clipboardData[i] ?? 0;
       }
 
       for (let i = 0; i < originalBuffer.length - insertSample; i++) {
-        newData[insertSample + clipboardBuffer.length + i] = originalData[insertSample + i];
+        newData[insertSample + clipboardBuffer.length + i] = originalData[insertSample + i] ?? 0;
       }
     }
 
@@ -135,7 +135,7 @@ export const audioOperations = {
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
+        const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i] ?? 0));
         view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
         offset += 2;
       }
@@ -150,16 +150,13 @@ export const audioOperations = {
     filename?: string
   ): Promise<void> {
     let blob: Blob;
-    let mimeType: string;
     let extension: string;
 
     if (format === "wav") {
       blob = await this.audioBufferToBlob(audioBuffer);
-      mimeType = "audio/wav";
       extension = "wav";
     } else {
       blob = await this.audioBufferToMP3OrOGG(audioBuffer, format);
-      mimeType = format === "mp3" ? "audio/mpeg" : "audio/ogg";
       extension = format;
     }
 
@@ -179,7 +176,6 @@ export const audioOperations = {
 
     try {
       const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-      const { fetchFile } = await import("@ffmpeg/util");
       const ffmpeg = new FFmpeg();
 
       const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
@@ -206,7 +202,9 @@ export const audioOperations = {
       await ffmpeg.deleteFile("input.wav");
       await ffmpeg.deleteFile(outputFile);
 
-      return new Blob([data], {
+      const blobData =
+        typeof data === "string" ? new TextEncoder().encode(data) : new Uint8Array(data);
+      return new Blob([blobData], {
         type: format === "mp3" ? "audio/mpeg" : "audio/ogg",
       });
     } catch (error) {

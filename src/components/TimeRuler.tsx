@@ -32,7 +32,7 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     let width = 0;
 
     const waveformElement = container.querySelector("wave") as HTMLElement;
-    const svgElement = container.querySelector("svg") as HTMLElement;
+    const svgElement = container.querySelector("svg") as unknown as HTMLElement;
 
     if (waveformElement) {
       width = Math.max(

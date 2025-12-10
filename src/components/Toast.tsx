@@ -1,4 +1,4 @@
-import { Component, Show, onMount } from "solid-js";
+import { Component, onMount } from "solid-js";
 
 interface ToastProps {
   message: string;

@@ -46,7 +46,7 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
   redoStackLength: 0,
 });
 
-let saveTimeout: number | null = null;
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let lastSaveTime = 0;
 const scheduleSave = () => {
   if (saveTimeout !== null) {
@@ -77,7 +77,7 @@ export const initializeStore = async () => {
   });
 
   const savedState = await loadState();
-  if (savedState) {
+  if (savedState && savedState.tracks) {
     const tracksWithUrls = await Promise.all(
       savedState.tracks.map(async (track) => {
         if (track.audioBuffer) {
@@ -152,8 +152,11 @@ export const useAudioStore = () => {
     return audioStore.tracks.find((t) => t.id === audioStore.currentTrackId) || null;
   };
 
-  const updateAudioStore = (...args: Parameters<typeof setAudioStore>) => {
-    setAudioStore(...args);
+  const updateAudioStore = <K extends keyof AudioState>(
+    key: K,
+    value: AudioState[K] | ((prev: AudioState[K]) => AudioState[K])
+  ) => {
+    setAudioStore(key, value);
     scheduleSave();
   };
 
@@ -284,11 +287,18 @@ export const useAudioStore = () => {
       destData.set(sourceData);
     }
 
-    setAudioStore("tracks", trackIndex, {
-      ...audioStore.tracks[trackIndex],
-      audioBuffer: restoredBuffer,
-      audioUrl: newUrl,
-      duration: previousState.duration,
+    setAudioStore("tracks", (tracks) => {
+      const newTracks = [...tracks];
+      const existingTrack = audioStore.tracks[trackIndex];
+      if (existingTrack) {
+        newTracks[trackIndex] = {
+          ...existingTrack,
+          audioBuffer: restoredBuffer,
+          audioUrl: newUrl,
+          duration: previousState.duration,
+        };
+      }
+      return newTracks;
     });
 
     scheduleSave();
@@ -352,11 +362,18 @@ export const useAudioStore = () => {
       destData.set(sourceData);
     }
 
-    setAudioStore("tracks", trackIndex, {
-      ...audioStore.tracks[trackIndex],
-      audioBuffer: restoredBuffer,
-      audioUrl: newUrl,
-      duration: nextState.duration,
+    setAudioStore("tracks", (tracks) => {
+      const newTracks = [...tracks];
+      const existingTrack = audioStore.tracks[trackIndex];
+      if (existingTrack) {
+        newTracks[trackIndex] = {
+          ...existingTrack,
+          audioBuffer: restoredBuffer,
+          audioUrl: newUrl,
+          duration: nextState.duration,
+        };
+      }
+      return newTracks;
     });
 
     scheduleSave();

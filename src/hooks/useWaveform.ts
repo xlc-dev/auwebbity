@@ -12,8 +12,6 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
   let isDragging = false;
   let originalRegionWidth: number | null = null;
   let lastClampTime = 0;
-  let lastValidStart: number | null = null;
-  let lastValidEnd: number | null = null;
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
 
@@ -28,7 +26,6 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       cursorColor: "#c9d1d9",
       barWidth: 2,
       barRadius: 1,
-      responsive: true,
       height: 200,
       normalize: true,
       interact: true,
@@ -96,7 +93,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       }, 150);
     });
 
-    wavesurfer.on("click", (relativeX, event) => {
+    wavesurfer.on("click", (relativeX) => {
       if (isDragging) {
         isDragging = false;
         return;
@@ -108,7 +105,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
         pausedTime = null;
         setCurrentTime(newTime);
         isSeeking = true;
-        wavesurfer.seekTo(relativeX);
+        wavesurfer?.seekTo(relativeX);
         setTimeout(() => {
           isSeeking = false;
         }, 100);
@@ -116,6 +113,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     regionsPlugin.on("region-initialized", (region) => {
+      if (!region) return;
       isDragging = true;
       const existingRegions = regionsPlugin?.getRegions() || [];
       existingRegions.forEach((r) => {
@@ -126,6 +124,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     regionsPlugin.on("region-created", (region) => {
+      if (!region) return;
       isDragging = false;
       originalRegionWidth = region.end - region.start;
       region.setOptions({
@@ -139,18 +138,18 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     regionsPlugin.on("region-clicked", (region) => {
+      if (!region) return;
       originalRegionWidth = region.end - region.start;
     });
 
-    regionsPlugin.on("region-update-start", (region) => {
-      if (originalRegionWidth === null) {
+    regionsPlugin.on("region-update", (region) => {
+      if (originalRegionWidth === null && region) {
         originalRegionWidth = region.end - region.start;
       }
-      lastValidStart = region.start;
-      lastValidEnd = region.end;
     });
 
     regionsPlugin.on("region-updated", (region) => {
+      if (!region) return;
       const duration = wavesurfer?.getDuration() || 0;
       if (duration <= 0) {
         setSelection({
@@ -182,9 +181,6 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
         clampedEnd = Math.min(duration, regionWidth);
       }
 
-      lastValidStart = clampedStart;
-      lastValidEnd = clampedEnd;
-
       const now = performance.now();
       const needsClamping =
         widthChanged ||
@@ -204,7 +200,8 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       });
     });
 
-    regionsPlugin.on("region-update-end", (region) => {
+    regionsPlugin.on("region-updated", (region) => {
+      if (!region) return;
       const duration = wavesurfer?.getDuration() || 0;
       if (duration > 0 && originalRegionWidth !== null) {
         const regionWidth = originalRegionWidth;
@@ -230,8 +227,6 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
 
       originalRegionWidth = null;
       lastClampTime = 0;
-      lastValidStart = null;
-      lastValidEnd = null;
     });
 
     regionsPlugin.on("region-clicked", (region) => {

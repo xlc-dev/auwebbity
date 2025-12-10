@@ -7,7 +7,7 @@ interface PlaybackControlsProps {
 }
 
 export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
-  const { store, setCurrentTime, setPlaying } = useAudioStore();
+  const { store, setCurrentTime } = useAudioStore();
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -74,7 +74,6 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   });
 
   const currentTrack = () => store.tracks.find((t) => t.id === store.currentTrackId);
-  const hasTrack = () => !!currentTrack();
   const duration = () => currentTrack()?.duration || 0;
   const progress = () => {
     const dur = duration();

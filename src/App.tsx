@@ -210,10 +210,10 @@ export default function App() {
         const afterData = after.getChannelData(channel);
 
         for (let i = 0; i < before.length; i++) {
-          newData[i] = beforeData[i];
+          newData[i] = beforeData[i] ?? 0;
         }
         for (let i = 0; i < after.length; i++) {
-          newData[before.length + i] = afterData[i];
+          newData[before.length + i] = afterData[i] ?? 0;
         }
       }
 
@@ -222,11 +222,15 @@ export default function App() {
 
       const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
       if (trackIndex !== -1) {
-        setAudioStore("tracks", trackIndex, {
-          ...currentTrack,
-          audioBuffer: newBuffer,
-          audioUrl: newUrl,
-          duration: newBuffer.duration,
+        setAudioStore("tracks", (tracks) => {
+          const newTracks = [...tracks];
+          newTracks[trackIndex] = {
+            ...currentTrack,
+            audioBuffer: newBuffer,
+            audioUrl: newUrl,
+            duration: newBuffer.duration,
+          };
+          return newTracks;
         });
       }
 
@@ -279,11 +283,15 @@ export default function App() {
 
       const trackIndex = store.tracks.findIndex((t) => t.id === trackId);
       if (trackIndex !== -1) {
-        setAudioStore("tracks", trackIndex, {
-          ...currentTrack,
-          audioBuffer: newBuffer,
-          audioUrl: newUrl,
-          duration: newBuffer.duration,
+        setAudioStore("tracks", (tracks) => {
+          const newTracks = [...tracks];
+          newTracks[trackIndex] = {
+            ...currentTrack,
+            audioBuffer: newBuffer,
+            audioUrl: newUrl,
+            duration: newBuffer.duration,
+          };
+          return newTracks;
         });
         const updatedTrack = getCurrentTrack();
         if (updatedTrack?.audioUrl) {
@@ -325,10 +333,10 @@ export default function App() {
         const afterData = after.getChannelData(channel);
 
         for (let i = 0; i < before.length; i++) {
-          newData[i] = beforeData[i];
+          newData[i] = beforeData[i] ?? 0;
         }
         for (let i = 0; i < after.length; i++) {
-          newData[before.length + i] = afterData[i];
+          newData[before.length + i] = afterData[i] ?? 0;
         }
       }
 
@@ -337,11 +345,15 @@ export default function App() {
 
       const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
       if (trackIndex !== -1) {
-        setAudioStore("tracks", trackIndex, {
-          ...currentTrack,
-          audioBuffer: newBuffer,
-          audioUrl: newUrl,
-          duration: newBuffer.duration,
+        setAudioStore("tracks", (tracks) => {
+          const newTracks = [...tracks];
+          newTracks[trackIndex] = {
+            ...currentTrack,
+            audioBuffer: newBuffer,
+            audioUrl: newUrl,
+            duration: newBuffer.duration,
+          };
+          return newTracks;
         });
       }
 
@@ -534,7 +546,7 @@ export default function App() {
             />
           </div>
           <div class="app__footer-center">
-            <PlaybackControls waveform={waveformRef()} />
+            <PlaybackControls waveform={waveformRef() ?? undefined} />
           </div>
           <div class="app__footer-right">
             <ZoomControls />

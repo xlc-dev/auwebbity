@@ -115,18 +115,19 @@ export async function saveState(state: AudioState): Promise<void> {
     const store = transaction.objectStore("audioBuffers");
 
     if (state.clipboard) {
+      const clipboard = state.clipboard;
       const channelData: Float32Array[] = [];
-      for (let i = 0; i < state.clipboard.numberOfChannels; i++) {
-        channelData.push(state.clipboard.getChannelData(i));
+      for (let i = 0; i < clipboard.numberOfChannels; i++) {
+        channelData.push(clipboard.getChannelData(i));
       }
 
       await new Promise<void>((resolve, reject) => {
         const request = store.put({
           id: "clipboard",
           channelData: channelData.map((arr) => Array.from(arr)),
-          sampleRate: state.clipboard.sampleRate,
-          numberOfChannels: state.clipboard.numberOfChannels,
-          length: state.clipboard.length,
+          sampleRate: clipboard.sampleRate,
+          numberOfChannels: clipboard.numberOfChannels,
+          length: clipboard.length,
         });
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);

@@ -3,7 +3,7 @@ import { useAudioStore } from "../stores/audioStore";
 import { FloatingButton } from "./FloatingButton";
 
 export const ZoomControls: Component = () => {
-  const { store, zoomIn, zoomOut, resetZoom } = useAudioStore();
+  const { zoomIn, zoomOut, resetZoom } = useAudioStore();
 
   return (
     <div class="zoom-controls">
