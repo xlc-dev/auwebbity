@@ -104,11 +104,10 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
           <div class="flex items-center gap-1 sm:gap-1.5">
             <button
               onClick={props.onRecordClick}
-              class="group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0"
               classList={{
-                "bg-[var(--color-recording)] text-white border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.9)] hover:border-[var(--color-recording)]":
+                "group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0 bg-[var(--color-recording)] text-white border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.9)] hover:border-[var(--color-recording)] hover:text-white":
                   isRecording(),
-                "border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)]":
+                "group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0 border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)]":
                   !isRecording(),
               }}
               aria-label={isRecording() ? "Stop Recording" : "Start Recording"}
