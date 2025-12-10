@@ -92,7 +92,6 @@ export const initializeStore = async () => {
       })
     );
 
-    // Restore undo/redo stacks
     if (savedState.undoStack) {
       undoStack.length = 0;
       undoStack.push(...savedState.undoStack);

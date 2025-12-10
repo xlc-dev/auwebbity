@@ -44,12 +44,14 @@ export const WaveformView: Component<WaveformViewProps> = (props) => {
     <div class="w-full h-full relative flex flex-col items-center p-8 overflow-hidden">
       <Show when={hasTracks()}>
         <div class="w-full max-w-[1200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg shadow-[0_2px_8px_rgba(0,0,0,0.1)] relative flex flex-col h-full overflow-hidden">
-          <TimeRuler containerRef={() => containerRef} />
-          <div class="flex-1 overflow-x-auto overflow-y-hidden p-4 pt-2 [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb:hover]:bg-[var(--color-border-hover)]">
-            <div
-              ref={containerRef}
-              class="w-full flex-1 min-h-[200px] flex-shrink-0 [&_wave]:cursor-pointer [&_[data-name='cursor']]:!w-[3px] [&_[data-name='cursor']]:!bg-[#4a9eff] [&_[data-name='cursor']]:!shadow-[0_0_8px_rgba(74,158,255,0.8),0_0_4px_rgba(74,158,255,0.6)] [&_[data-name='cursor']]:!z-[10] [&_[data-name='progress']]:!bg-[rgba(74,158,255,0.4)]"
-            />
+          <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
+            <div class="flex flex-col">
+              <TimeRuler containerRef={() => containerRef} />
+              <div
+                ref={containerRef}
+                class="min-h-[200px] flex-shrink-0 [&_wave]:cursor-pointer [&_[data-name='cursor']]:!w-[3px] [&_[data-name='cursor']]:!bg-[#4a9eff] [&_[data-name='cursor']]:!shadow-[0_0_8px_rgba(74,158,255,0.8),0_0_4px_rgba(74,158,255,0.6)] [&_[data-name='cursor']]:!z-[10] [&_[data-name='progress']]:!bg-[rgba(74,158,255,0.4)] [&>*]:overflow-visible [&_wave]:overflow-visible [&>*]:overflow-x-visible [&_wave]:overflow-x-visible"
+              />
+            </div>
           </div>
         </div>
       </Show>
