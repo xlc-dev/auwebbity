@@ -1,5 +1,6 @@
 import { Component, onCleanup, onMount } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
+import { formatTime } from "../utils/timeUtils";
 import { Button } from "./Button";
 
 interface PlaybackControlsProps {
@@ -8,12 +9,6 @@ interface PlaybackControlsProps {
 
 export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   const { store, setCurrentTime } = useAudioStore();
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
 
   const handlePlayPause = () => {
     if (!props.waveform) return;

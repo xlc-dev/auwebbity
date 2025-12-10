@@ -1,11 +1,20 @@
-import { createSignal } from "solid-js";
+import { createSignal, onCleanup } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
+import { getErrorMessage } from "../utils/errorUtils";
+import { formatDateForFilename } from "../utils/dateUtils";
+
+function stopMediaStream(stream: MediaStream): void {
+  stream.getTracks().forEach((track) => track.stop());
+}
 
 export const useAudioRecorder = () => {
   const [isRecording, setIsRecording] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = createSignal(0);
   let mediaRecorder: MediaRecorder | null = null;
   let audioChunks: Blob[] = [];
+  let recordingStartTime = 0;
+  let durationInterval: ReturnType<typeof setInterval> | null = null;
   const { addTrack } = useAudioStore();
 
   const startRecording = async () => {
@@ -40,7 +49,7 @@ export const useAudioRecorder = () => {
       });
 
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
+        if (event.data && event.data.size > 0) {
           audioChunks.push(event.data);
         }
       };
@@ -54,7 +63,7 @@ export const useAudioRecorder = () => {
         try {
           if (audioChunks.length === 0) {
             setError("No audio data recorded");
-            stream.getTracks().forEach((track) => track.stop());
+            stopMediaStream(stream);
             return;
           }
 
@@ -66,24 +75,28 @@ export const useAudioRecorder = () => {
           const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
           addTrack({
-            name: `Recording ${new Date().toLocaleTimeString()}`,
+            name: `Recording ${formatDateForFilename()}`,
             audioBuffer,
             audioUrl,
             duration: audioBuffer.duration,
           });
 
-          stream.getTracks().forEach((track) => track.stop());
+          stopMediaStream(stream);
         } catch (err) {
-          setError(err instanceof Error ? err.message : "Failed to process recording");
-          stream.getTracks().forEach((track) => track.stop());
+          setError(getErrorMessage(err, "Failed to process recording"));
+          stopMediaStream(stream);
         }
       };
 
       setIsRecording(true);
-      mediaRecorder.start(100);
+      recordingStartTime = Date.now();
+      setRecordingDuration(0);
+      durationInterval = setInterval(() => {
+        setRecordingDuration(Math.floor((Date.now() - recordingStartTime) / 1000));
+      }, 100);
+      mediaRecorder.start(10);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "Failed to start recording";
-      setError(errorMessage);
+      setError(getErrorMessage(err, "Failed to start recording"));
       setIsRecording(false);
       throw err;
     }
@@ -91,10 +104,24 @@ export const useAudioRecorder = () => {
 
   const stopRecording = () => {
     if (mediaRecorder && isRecording()) {
+      if (mediaRecorder.state === "recording") {
+        mediaRecorder.requestData();
+      }
       mediaRecorder.stop();
       setIsRecording(false);
+      if (durationInterval) {
+        clearInterval(durationInterval);
+        durationInterval = null;
+      }
+      setRecordingDuration(0);
     }
   };
+
+  onCleanup(() => {
+    if (durationInterval) {
+      clearInterval(durationInterval);
+    }
+  });
 
   const clearError = () => {
     setError(null);
@@ -103,6 +130,7 @@ export const useAudioRecorder = () => {
   return {
     isRecording,
     error,
+    recordingDuration,
     startRecording,
     stopRecording,
     clearError,

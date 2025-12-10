@@ -15,9 +15,6 @@ interface PersistedHistoryState {
 interface PersistedState {
   tracks: Omit<AudioTrack, "audioBuffer">[];
   currentTrackId: string | null;
-  selection: { start: number; end: number } | null;
-  zoom: number;
-  currentTime: number;
   undoStack?: PersistedHistoryState[];
   redoStack?: PersistedHistoryState[];
 }
@@ -38,63 +35,63 @@ async function openDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveAudioBuffer(id: string, audioBuffer: AudioBuffer): Promise<void> {
-  const db = await openDB();
+function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
 
+function extractChannelData(audioBuffer: AudioBuffer): Float32Array[] {
   const channelData: Float32Array[] = [];
   for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
     channelData.push(audioBuffer.getChannelData(i));
   }
+  return channelData;
+}
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["audioBuffers"], "readwrite");
-    const store = transaction.objectStore("audioBuffers");
-    const request = store.put({
+export async function saveAudioBuffer(id: string, audioBuffer: AudioBuffer): Promise<void> {
+  const db = await openDB();
+  const channelData = extractChannelData(audioBuffer);
+
+  const transaction = db.transaction(["audioBuffers"], "readwrite");
+  const store = transaction.objectStore("audioBuffers");
+  await promisifyRequest(
+    store.put({
       id,
       channelData: channelData.map((arr) => Array.from(arr)),
       sampleRate: audioBuffer.sampleRate,
       numberOfChannels: audioBuffer.numberOfChannels,
       length: audioBuffer.length,
-    });
-
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
+    })
+  );
 }
 
 export async function loadAudioBuffer(id: string): Promise<AudioBuffer | null> {
   const db = await openDB();
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(["audioBuffers"], "readonly");
-    const store = transaction.objectStore("audioBuffers");
-    const request = store.get(id);
+  const transaction = db.transaction(["audioBuffers"], "readonly");
+  const store = transaction.objectStore("audioBuffers");
+  const result = await promisifyRequest(store.get(id));
 
-    request.onsuccess = () => {
-      const result = request.result;
-      if (!result) {
-        resolve(null);
-        return;
-      }
+  if (!result) {
+    return null;
+  }
 
-      const audioContext = new AudioContext();
-      const audioBuffer = audioContext.createBuffer(
-        result.numberOfChannels,
-        result.length,
-        result.sampleRate
-      );
+  const audioContext = new AudioContext();
+  const audioBuffer = audioContext.createBuffer(
+    result.numberOfChannels,
+    result.length,
+    result.sampleRate
+  );
 
-      for (let i = 0; i < result.numberOfChannels; i++) {
-        const channelData = audioBuffer.getChannelData(i);
-        const storedData = result.channelData[i];
-        channelData.set(storedData);
-      }
+  for (let i = 0; i < result.numberOfChannels; i++) {
+    const channelData = audioBuffer.getChannelData(i);
+    const storedData = result.channelData[i];
+    channelData.set(storedData);
+  }
 
-      resolve(audioBuffer);
-    };
-
-    request.onerror = () => reject(request.error);
-  });
+  return audioBuffer;
 }
 
 export async function saveState(
@@ -111,9 +108,6 @@ export async function saveState(
         duration: track.duration,
       })),
       currentTrackId: state.currentTrackId,
-      selection: state.selection,
-      zoom: state.zoom,
-      currentTime: state.currentTime,
       undoStack: await Promise.all(
         undoStack.map(async (historyState, index) => {
           const bufferId = `undo-${historyState.trackId}-${index}`;
@@ -154,28 +148,19 @@ export async function saveState(
 
     if (state.clipboard) {
       const clipboard = state.clipboard;
-      const channelData: Float32Array[] = [];
-      for (let i = 0; i < clipboard.numberOfChannels; i++) {
-        channelData.push(clipboard.getChannelData(i));
-      }
+      const channelData = extractChannelData(clipboard);
 
-      await new Promise<void>((resolve, reject) => {
-        const request = store.put({
+      await promisifyRequest(
+        store.put({
           id: "clipboard",
           channelData: channelData.map((arr) => Array.from(arr)),
           sampleRate: clipboard.sampleRate,
           numberOfChannels: clipboard.numberOfChannels,
           length: clipboard.length,
-        });
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
+        })
+      );
     } else {
-      await new Promise<void>((resolve, reject) => {
-        const deleteRequest = store.delete("clipboard");
-        deleteRequest.onsuccess = () => resolve();
-        deleteRequest.onerror = () => reject(deleteRequest.error);
-      });
+      await promisifyRequest(store.delete("clipboard"));
     }
   } catch (error) {
     console.error("Failed to save state:", error);
@@ -242,9 +227,6 @@ export async function loadState(): Promise<
     return {
       tracks,
       currentTrackId: persistedState.currentTrackId,
-      selection: persistedState.selection,
-      zoom: persistedState.zoom,
-      currentTime: persistedState.currentTime,
       clipboard,
       isPlaying: false,
       undoStack,
@@ -262,11 +244,7 @@ export async function clearState(): Promise<void> {
     const db = await openDB();
     const transaction = db.transaction(["audioBuffers"], "readwrite");
     const store = transaction.objectStore("audioBuffers");
-    await new Promise<void>((resolve, reject) => {
-      const request = store.clear();
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    });
+    await promisifyRequest(store.clear());
   } catch (error) {
     console.error("Failed to clear state:", error);
   }

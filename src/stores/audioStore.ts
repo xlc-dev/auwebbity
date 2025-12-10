@@ -1,6 +1,7 @@
 import { createStore } from "solid-js/store";
 import { saveState, loadState, clearState } from "../utils/persistence";
 import { audioOperations } from "../utils/audioOperations";
+import { cloneAudioBuffer } from "../utils/audioBufferUtils";
 
 export interface AudioTrack {
   id: string;
@@ -47,7 +48,6 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
 });
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
-let lastSaveTime = 0;
 const scheduleSave = () => {
   if (saveTimeout !== null) {
     clearTimeout(saveTimeout);
@@ -146,11 +146,6 @@ export const useAudioStore = () => {
 
   const setCurrentTime = (time: number) => {
     setAudioStore("currentTime", time);
-    const now = Date.now();
-    if (now - lastSaveTime > 2000) {
-      lastSaveTime = now;
-      scheduleSave();
-    }
   };
 
   const setClipboard = (buffer: AudioBuffer | null) => {
@@ -172,13 +167,12 @@ export const useAudioStore = () => {
   };
 
   const resetStore = async () => {
-    audioStore.tracks.forEach((track) => {
-      if (track.audioUrl) {
-        URL.revokeObjectURL(track.audioUrl);
-      }
-    });
+    revokeTrackUrls(audioStore.tracks);
 
     await clearState();
+
+    undoStack = [];
+    redoStack = [];
 
     setAudioStore({
       tracks: [],
@@ -191,11 +185,25 @@ export const useAudioStore = () => {
       undoStackLength: 0,
       redoStackLength: 0,
     });
+  };
 
-    undoStack = [];
-    redoStack = [];
-    setAudioStore("undoStackLength", 0);
-    setAudioStore("redoStackLength", 0);
+  const createHistoryState = async (
+    trackId: string,
+    audioBuffer: AudioBuffer,
+    duration: number
+  ): Promise<HistoryState> => {
+    const clonedBuffer = cloneAudioBuffer(audioBuffer);
+    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
+    const audioUrl = URL.createObjectURL(blob);
+    return { trackId, audioBuffer: clonedBuffer, audioUrl, duration };
+  };
+
+  const revokeTrackUrls = (tracks: AudioTrack[]): void => {
+    tracks.forEach((track) => {
+      if (track.audioUrl) {
+        URL.revokeObjectURL(track.audioUrl);
+      }
+    });
   };
 
   const saveToHistory = async (trackId: string) => {
@@ -205,28 +213,11 @@ export const useAudioStore = () => {
       return;
     }
 
-    const audioContext = new AudioContext();
-    const clonedBuffer = audioContext.createBuffer(
-      track.audioBuffer.numberOfChannels,
-      track.audioBuffer.length,
-      track.audioBuffer.sampleRate
-    );
-
-    for (let channel = 0; channel < track.audioBuffer.numberOfChannels; channel++) {
-      const sourceData = track.audioBuffer.getChannelData(channel);
-      const destData = clonedBuffer.getChannelData(channel);
-      destData.set(sourceData);
-    }
-
-    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
-    const audioUrl = URL.createObjectURL(blob);
-
-    const historyState: HistoryState = {
+    const historyState = await createHistoryState(
       trackId,
-      audioBuffer: clonedBuffer,
-      audioUrl,
-      duration: track.duration,
-    };
+      track.audioBuffer,
+      track.duration
+    );
 
     undoStack.push(historyState);
     if (undoStack.length > MAX_HISTORY) {
@@ -241,62 +232,39 @@ export const useAudioStore = () => {
     setAudioStore("redoStackLength", 0);
   };
 
-  const undo = async (): Promise<boolean> => {
-    if (undoStack.length === 0) return false;
+  const applyHistoryState = async (
+    direction: "undo" | "redo"
+  ): Promise<boolean> => {
+    const sourceStack = direction === "undo" ? undoStack : redoStack;
+    const targetStack = direction === "undo" ? redoStack : undoStack;
+
+    if (sourceStack.length === 0) return false;
 
     const currentTrack = getCurrentTrack();
     if (!currentTrack?.audioBuffer) return false;
 
-    const audioContext = new AudioContext();
-    const clonedBuffer = audioContext.createBuffer(
-      currentTrack.audioBuffer.numberOfChannels,
-      currentTrack.audioBuffer.length,
-      currentTrack.audioBuffer.sampleRate
+    const currentState = await createHistoryState(
+      currentTrack.id,
+      currentTrack.audioBuffer,
+      currentTrack.duration
     );
 
-    for (let channel = 0; channel < currentTrack.audioBuffer.numberOfChannels; channel++) {
-      const sourceData = currentTrack.audioBuffer.getChannelData(channel);
-      const destData = clonedBuffer.getChannelData(channel);
-      destData.set(sourceData);
-    }
+    targetStack.push(currentState);
+    setAudioStore(direction === "undo" ? "redoStackLength" : "undoStackLength", targetStack.length);
 
-    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
-    const audioUrl = URL.createObjectURL(blob);
+    const stateToRestore = sourceStack.pop()!;
+    setAudioStore(direction === "undo" ? "undoStackLength" : "redoStackLength", sourceStack.length);
 
-    const currentState: HistoryState = {
-      trackId: currentTrack.id,
-      audioBuffer: clonedBuffer,
-      audioUrl,
-      duration: currentTrack.duration,
-    };
-
-    redoStack.push(currentState);
-    setAudioStore("redoStackLength", redoStack.length);
-
-    const previousState = undoStack.pop()!;
-    setAudioStore("undoStackLength", undoStack.length);
-    const trackIndex = audioStore.tracks.findIndex((t) => t.id === previousState.trackId);
+    const trackIndex = audioStore.tracks.findIndex((t) => t.id === stateToRestore.trackId);
     if (trackIndex === -1) return false;
 
     if (currentTrack.audioUrl) {
       URL.revokeObjectURL(currentTrack.audioUrl);
     }
 
-    const newBlob = await audioOperations.audioBufferToBlob(previousState.audioBuffer);
+    const newBlob = await audioOperations.audioBufferToBlob(stateToRestore.audioBuffer);
     const newUrl = URL.createObjectURL(newBlob);
-
-    const audioContext2 = new AudioContext();
-    const restoredBuffer = audioContext2.createBuffer(
-      previousState.audioBuffer.numberOfChannels,
-      previousState.audioBuffer.length,
-      previousState.audioBuffer.sampleRate
-    );
-
-    for (let channel = 0; channel < previousState.audioBuffer.numberOfChannels; channel++) {
-      const sourceData = previousState.audioBuffer.getChannelData(channel);
-      const destData = restoredBuffer.getChannelData(channel);
-      destData.set(sourceData);
-    }
+    const restoredBuffer = cloneAudioBuffer(stateToRestore.audioBuffer);
 
     setAudioStore("tracks", (tracks) => {
       const newTracks = [...tracks];
@@ -306,7 +274,7 @@ export const useAudioStore = () => {
           ...existingTrack,
           audioBuffer: restoredBuffer,
           audioUrl: newUrl,
-          duration: previousState.duration,
+          duration: stateToRestore.duration,
         };
       }
       return newTracks;
@@ -316,79 +284,12 @@ export const useAudioStore = () => {
     return true;
   };
 
+  const undo = async (): Promise<boolean> => {
+    return applyHistoryState("undo");
+  };
+
   const redo = async (): Promise<boolean> => {
-    if (redoStack.length === 0) return false;
-
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer) return false;
-
-    const audioContext = new AudioContext();
-    const clonedBuffer = audioContext.createBuffer(
-      currentTrack.audioBuffer.numberOfChannels,
-      currentTrack.audioBuffer.length,
-      currentTrack.audioBuffer.sampleRate
-    );
-
-    for (let channel = 0; channel < currentTrack.audioBuffer.numberOfChannels; channel++) {
-      const sourceData = currentTrack.audioBuffer.getChannelData(channel);
-      const destData = clonedBuffer.getChannelData(channel);
-      destData.set(sourceData);
-    }
-
-    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
-    const audioUrl = URL.createObjectURL(blob);
-
-    const currentState: HistoryState = {
-      trackId: currentTrack.id,
-      audioBuffer: clonedBuffer,
-      audioUrl,
-      duration: currentTrack.duration,
-    };
-
-    undoStack.push(currentState);
-    setAudioStore("undoStackLength", undoStack.length);
-
-    const nextState = redoStack.pop()!;
-    setAudioStore("redoStackLength", redoStack.length);
-    const trackIndex = audioStore.tracks.findIndex((t) => t.id === nextState.trackId);
-    if (trackIndex === -1) return false;
-
-    if (currentTrack.audioUrl) {
-      URL.revokeObjectURL(currentTrack.audioUrl);
-    }
-
-    const newBlob = await audioOperations.audioBufferToBlob(nextState.audioBuffer);
-    const newUrl = URL.createObjectURL(newBlob);
-
-    const audioContext2 = new AudioContext();
-    const restoredBuffer = audioContext2.createBuffer(
-      nextState.audioBuffer.numberOfChannels,
-      nextState.audioBuffer.length,
-      nextState.audioBuffer.sampleRate
-    );
-
-    for (let channel = 0; channel < nextState.audioBuffer.numberOfChannels; channel++) {
-      const sourceData = nextState.audioBuffer.getChannelData(channel);
-      const destData = restoredBuffer.getChannelData(channel);
-      destData.set(sourceData);
-    }
-
-    setAudioStore("tracks", (tracks) => {
-      const newTracks = [...tracks];
-      const existingTrack = audioStore.tracks[trackIndex];
-      if (existingTrack) {
-        newTracks[trackIndex] = {
-          ...existingTrack,
-          audioBuffer: restoredBuffer,
-          audioUrl: newUrl,
-          duration: nextState.duration,
-        };
-      }
-      return newTracks;
-    });
-
-    scheduleSave();
-    return true;
+    return applyHistoryState("redo");
   };
 
   const canUndo = () => audioStore.undoStackLength > 0;

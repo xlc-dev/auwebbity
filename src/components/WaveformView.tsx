@@ -1,4 +1,4 @@
-import { Component, createEffect, onMount, Show } from "solid-js";
+import { Component, onMount, Show } from "solid-js";
 import { useWaveform } from "../hooks/useWaveform";
 import { useAudioStore } from "../stores/audioStore";
 import { TimeRuler } from "./TimeRuler";
@@ -14,56 +14,6 @@ export const WaveformView: Component<WaveformViewProps> = (props) => {
 
   onMount(() => {
     props.onWaveformReady?.(waveform);
-  });
-
-  createEffect(() => {
-    // Track tracks array length to detect additions
-    const tracksLength = store.tracks.length;
-    const currentTrackId = store.currentTrackId;
-
-    if (tracksLength === 0) {
-      waveform.clearAudio();
-      return;
-    }
-
-    if (!currentTrackId) {
-      return;
-    }
-
-    // Find current track - this creates a reactive dependency on the tracks array
-    const currentTrack = store.tracks.find((t) => t.id === currentTrackId);
-
-    // Explicitly access audioUrl to create reactive dependency on this property
-    const audioUrl = currentTrack?.audioUrl;
-
-    if (audioUrl) {
-      // Use a small delay to ensure the URL is fully ready
-      const loadWithRetry = () => {
-        if (!containerRef) {
-          setTimeout(loadWithRetry, 50);
-          return;
-        }
-
-        // Small delay to ensure DOM is ready
-        setTimeout(() => {
-          waveform.loadAudio(audioUrl);
-          setTimeout(() => {
-            if (containerRef) {
-              const event = new Event("waveform-updated");
-              containerRef.dispatchEvent(event);
-            }
-          }, 500);
-        }, 100);
-      };
-      loadWithRetry();
-    }
-  });
-
-  createEffect(() => {
-    const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
-    if (currentTrack?.audioUrl) {
-      waveform.setZoom(store.zoom);
-    }
   });
 
   const hasTracks = () => store.tracks.length > 0;

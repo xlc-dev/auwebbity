@@ -5,6 +5,7 @@ import { ZoomControls } from "./ZoomControls";
 import { Dropdown } from "./Dropdown";
 import { useAudioStore } from "../stores/audioStore";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
+import { formatTime } from "../utils/timeUtils";
 
 interface ToolbarProps {
   waveform?: ReturnType<typeof import("../hooks/useWaveform").useWaveform>;
@@ -27,11 +28,12 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
   const recorder = useAudioRecorder();
 
   const isRecording = () => recorder.isRecording();
+  const recordingDuration = () => recorder.recordingDuration();
 
   const recordingIcon = createMemo(() => {
     if (isRecording()) {
       return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="text-white">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
           <rect x="6" y="6" width="12" height="12" rx="2" />
         </svg>
       );
@@ -99,25 +101,33 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             onClick={props.onImportClick}
             variant="secondary"
           />
-          <Show when={isRecording()}>
-            <div class="inline-flex items-center gap-1 sm:gap-1.5 py-1 sm:py-1.5 md:py-2 px-1.5 sm:px-2 md:px-3.5 bg-[var(--color-recording)] text-white rounded-md text-[0.625rem] sm:text-xs md:text-[0.8125rem] font-semibold">
-              <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse"></span>
-              <span class="hidden sm:inline">Recording</span>
-            </div>
-          </Show>
-          <div class="relative">
-            <Button
-              icon={() => recordingIcon()}
-              label={isRecording() ? "Stop Recording" : "Start Recording"}
+          <div class="flex items-center gap-1 sm:gap-1.5">
+            <button
               onClick={props.onRecordClick}
-              variant={isRecording() ? "danger" : "secondary"}
+              class="group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0"
               classList={{
-                "!bg-[var(--color-recording)] !text-white !border-[var(--color-recording)] hover:!bg-[rgba(248,81,73,0.9)] hover:!border-[var(--color-recording)]":
+                "bg-[var(--color-recording)] text-white border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.9)] hover:border-[var(--color-recording)]":
                   isRecording(),
+                "border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)]":
+                  !isRecording(),
               }}
-            />
+              aria-label={isRecording() ? "Stop Recording" : "Start Recording"}
+            >
+              <span class="flex items-center justify-center w-full h-full [&_svg]:text-inherit relative">
+                {recordingIcon()}
+                <Show when={isRecording()}>
+                  <span class="absolute top-0 right-0 w-2 h-2 bg-white rounded-full animate-pulse"></span>
+                </Show>
+              </span>
+              <span class="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-dark)] text-white text-[0.625rem] sm:text-xs font-medium whitespace-nowrap rounded opacity-0 pointer-events-none transition-[opacity,transform] duration-150 z-[1000] group-hover:opacity-100 group-hover:-translate-y-0.5 [&::after]:content-[''] [&::after]:absolute [&::after]:top-full [&::after]:left-1/2 [&::after]:-translate-x-1/2 [&::after]:border-4 [&::after]:border-transparent [&::after]:border-t-[var(--color-dark)]">
+                {isRecording() ? "Stop Recording" : "Start Recording"}
+              </span>
+            </button>
             <Show when={isRecording()}>
-              <span class="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-pulse ring-2 ring-[var(--color-recording)]"></span>
+              <div class="inline-flex items-center gap-1 sm:gap-1.5 py-1 sm:py-1.5 md:py-2 px-1.5 sm:px-2 md:px-3.5 bg-[var(--color-recording)] text-white rounded-md text-[0.625rem] sm:text-xs md:text-[0.8125rem] font-semibold">
+                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse"></span>
+                <span class="tabular-nums">{formatTime(recordingDuration())}</span>
+              </div>
             </Show>
           </div>
         </div>

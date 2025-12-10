@@ -1,3 +1,5 @@
+import { formatDateForFilename } from "./dateUtils";
+
 export const audioOperations = {
   async copy(audioBuffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> {
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
@@ -163,7 +165,7 @@ export const audioOperations = {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = filename || `audio-export-${Date.now()}.${extension}`;
+    link.download = filename || `recording_${formatDateForFilename()}.${extension}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

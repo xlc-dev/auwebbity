@@ -30,19 +30,18 @@ export const Button: Component<ButtonProps> = (props) => {
     const buttonCenterX = buttonRect.left + buttonRect.width / 2;
     const tooltipLeft = buttonCenterX - tooltipWidth / 2;
 
-    tooltipRef.style.left = "";
-    tooltipRef.style.right = "";
-
     if (tooltipLeft < margin) {
-      tooltipRef.style.left = `${margin}px`;
+      tooltipRef.style.left = `${margin - buttonRect.left}px`;
+      tooltipRef.style.right = "";
       tooltipRef.style.transform = "translateY(-2px)";
     } else if (tooltipLeft + tooltipWidth > viewportWidth - margin) {
-      tooltipRef.style.right = `${margin}px`;
+      tooltipRef.style.right = `${viewportWidth - buttonRect.right - margin}px`;
       tooltipRef.style.left = "auto";
       tooltipRef.style.transform = "translateY(-2px)";
     } else {
-      tooltipRef.style.left = "50%";
-      tooltipRef.style.transform = "translateX(-50%) translateY(-2px)";
+      tooltipRef.style.left = "";
+      tooltipRef.style.right = "";
+      tooltipRef.style.transform = "";
     }
   };
 

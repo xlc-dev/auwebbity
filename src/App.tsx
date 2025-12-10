@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount, createEffect } from "solid-js";
+import { createSignal, Show, onMount } from "solid-js";
 import { WaveformView } from "./components/WaveformView";
 import { SelectionToolbar } from "./components/SelectionToolbar";
 import { Toolbar } from "./components/Toolbar";
@@ -12,15 +12,16 @@ import { useWaveform } from "./hooks/useWaveform";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useFileImport } from "./hooks/useFileImport";
 import { useAudioOperations } from "./hooks/useAudioOperations";
+import { useToast } from "./hooks/useToast";
 import { audioOperations } from "./utils/audioOperations";
+import { formatDateForFilename } from "./utils/dateUtils";
+import { getErrorMessage } from "./utils/errorUtils";
 
 export default function App() {
   const { store, getCurrentTrack, resetStore, undo, redo, canUndo, canRedo } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
-  const [toasts, setToasts] = createSignal<
-    Array<{ id: string; message: string; type?: "error" | "success" | "info" }>
-  >([]);
+  const toast = useToast();
   const [isInitialized, setIsInitialized] = createSignal(false);
   const [showResetDialog, setShowResetDialog] = createSignal(false);
   const [showShortcuts, setShowShortcuts] = createSignal(false);
@@ -31,20 +32,11 @@ export default function App() {
   const fileImport = useFileImport();
   const audioOps = useAudioOperations();
 
-  const addToast = (message: string, type: "error" | "success" | "info" = "error") => {
-    const id = crypto.randomUUID();
-    setToasts((prev) => [...prev, { id, message, type }]);
-  };
-
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
-
   const handleFileImport = async (e: Event) => {
     try {
       await fileImport.handleFileImport(e);
     } catch (err) {
-      addToast(err instanceof Error ? err.message : "Failed to import audio");
+      toast.addToast(getErrorMessage(err, "Failed to import audio"));
     }
   };
 
@@ -52,55 +44,14 @@ export default function App() {
     fileInputRef?.click();
   };
 
-  const handleCut = async () => {
+  const handleOperation = async (
+    operation: () => Promise<void>,
+    errorMessage: string
+  ) => {
     try {
-      await audioOps.handleCut(waveformRef);
+      await operation();
     } catch (err) {
-      addToast(err instanceof Error ? err.message : "Failed to cut");
-    }
-  };
-
-  const handleCopy = async () => {
-    try {
-      await audioOps.handleCopy(waveformRef);
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : "Failed to copy");
-    }
-  };
-
-  const handlePaste = async () => {
-    try {
-      await audioOps.handlePaste(waveformRef);
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : "Failed to paste");
-    }
-  };
-
-  const handleDelete = async () => {
-    try {
-      await audioOps.handleDelete(waveformRef);
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : "Failed to delete");
-    }
-  };
-
-  const handleUndo = async () => {
-    const success = await undo();
-    if (success) {
-      const updatedTrack = getCurrentTrack();
-      if (updatedTrack?.audioUrl) {
-        waveformRef()?.loadAudio(updatedTrack.audioUrl);
-      }
-    }
-  };
-
-  const handleRedo = async () => {
-    const success = await redo();
-    if (success) {
-      const updatedTrack = getCurrentTrack();
-      if (updatedTrack?.audioUrl) {
-        waveformRef()?.loadAudio(updatedTrack.audioUrl);
-      }
+      toast.addToast(getErrorMessage(err, errorMessage));
     }
   };
 
@@ -119,19 +70,17 @@ export default function App() {
   const handleExport = async () => {
     const currentTrack = getCurrentTrack();
     if (!currentTrack?.audioBuffer) {
-      addToast("No audio track to export");
+      toast.addToast("No audio track to export");
       return;
     }
 
     setIsExporting(true);
     try {
       const format = exportFormat();
-      const filename = currentTrack.name
-        ? `${currentTrack.name.replace(/\.[^/.]+$/, "")}.${format}`
-        : undefined;
+      const filename = `recording_${formatDateForFilename()}.${format}`;
       await audioOperations.exportAudio(currentTrack.audioBuffer, format, filename);
     } catch (err) {
-      addToast(err instanceof Error ? err.message : "Failed to export audio");
+      toast.addToast(getErrorMessage(err, "Failed to export audio"));
     } finally {
       setIsExporting(false);
     }
@@ -139,26 +88,17 @@ export default function App() {
 
   useKeyboardShortcuts({
     waveform: waveformRef,
-    onCut: handleCut,
-    onCopy: handleCopy,
-    onPaste: handlePaste,
-    onDelete: handleDelete,
-    onUndo: handleUndo,
-    onRedo: handleRedo,
+    onCut: () => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut"),
+    onCopy: () => handleOperation(() => audioOps.handleCopy(waveformRef), "Failed to copy"),
+    onPaste: () => handleOperation(() => audioOps.handlePaste(waveformRef), "Failed to paste"),
+    onDelete: () => handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete"),
+    onUndo: () => undo(),
+    onRedo: () => redo(),
   });
 
   onMount(async () => {
     await initializeStore();
     setIsInitialized(true);
-  });
-
-  createEffect(() => {
-    if (isInitialized() && waveformRef()) {
-      const currentTrack = getCurrentTrack();
-      if (currentTrack?.audioUrl) {
-        waveformRef()?.loadAudio(currentTrack.audioUrl);
-      }
-    }
   });
 
   const isLoading = () => fileImport.isLoading() || audioOps.isLoading();
@@ -178,38 +118,35 @@ export default function App() {
         </div>
       </Show>
       <SelectionToolbar
-        onCut={handleCut}
-        onCopy={handleCopy}
-        onPaste={handlePaste}
-        onDelete={handleDelete}
+        onCut={() => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut")}
+        onCopy={() => handleOperation(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
+        onPaste={() => handleOperation(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
+        onDelete={() => handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete")}
       />
       <Toolbar
         waveform={waveformRef() ?? undefined}
         onImportClick={handleImportClick}
         onExport={handleExport}
         onReset={handleReset}
-        onUndo={handleUndo}
-        onRedo={handleRedo}
+        onUndo={() => undo()}
+        onRedo={() => redo()}
         onRecordClick={async () => {
           if (recorder.isRecording()) {
             recorder.stopRecording();
           } else {
             try {
               await recorder.startRecording();
-              // Only check for errors if no exception was thrown
               if (recorder.error()) {
-                addToast(recorder.error()!);
+                toast.addToast(recorder.error()!);
                 recorder.clearError();
               }
             } catch (err) {
-              // If an error was thrown, check if recorder also has an error set
-              // to avoid duplicate toasts
               const recorderError = recorder.error();
               if (recorderError) {
-                addToast(recorderError);
+                toast.addToast(recorderError);
                 recorder.clearError();
               } else {
-                addToast(err instanceof Error ? err.message : "Failed to start recording");
+                toast.addToast(getErrorMessage(err, "Failed to start recording"));
               }
             }
           }
@@ -221,7 +158,7 @@ export default function App() {
         isExporting={isExporting()}
         hasSelection={store.selection !== null}
       />
-      <ToastContainer toasts={toasts()} onDismiss={removeToast} />
+      <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />
       <Show when={isLoading()}>
         <div class="fixed inset-0 bg-black/50 z-[1500] flex items-center justify-center backdrop-blur-[2px]">

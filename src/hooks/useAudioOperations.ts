@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
 import { audioOperations } from "../utils/audioOperations";
+import { mergeAudioBuffers } from "../utils/audioBufferUtils";
 
 export const useAudioOperations = () => {
   const { store, getCurrentTrack, setSelection, setClipboard, setAudioStore, saveToHistory } =
@@ -33,10 +34,6 @@ export const useAudioOperations = () => {
 
     setSelection(null);
     waveformRef()?.clearSelection();
-    const updatedTrack = getCurrentTrack();
-    if (updatedTrack?.audioUrl) {
-      waveformRef()?.loadAudio(updatedTrack.audioUrl);
-    }
   };
 
   const handleCut = async (
@@ -63,26 +60,12 @@ export const useAudioOperations = () => {
         store.selection.end
       );
 
-      const audioContext = new AudioContext();
-      const newLength = before.length + after.length;
-      const newBuffer = audioContext.createBuffer(
+      const newBuffer = mergeAudioBuffers(
+        before,
+        after,
         currentTrack.audioBuffer.numberOfChannels,
-        newLength,
         currentTrack.audioBuffer.sampleRate
       );
-
-      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-        const newData = newBuffer.getChannelData(channel);
-        const beforeData = before.getChannelData(channel);
-        const afterData = after.getChannelData(channel);
-
-        for (let i = 0; i < before.length; i++) {
-          newData[i] = beforeData[i] ?? 0;
-        }
-        for (let i = 0; i < after.length; i++) {
-          newData[before.length + i] = afterData[i] ?? 0;
-        }
-      }
 
       await updateTrackAfterOperation(currentTrack.id, newBuffer, waveformRef);
     } catch (err) {
@@ -151,26 +134,12 @@ export const useAudioOperations = () => {
         store.selection.end
       );
 
-      const audioContext = new AudioContext();
-      const newLength = before.length + after.length;
-      const newBuffer = audioContext.createBuffer(
+      const newBuffer = mergeAudioBuffers(
+        before,
+        after,
         currentTrack.audioBuffer.numberOfChannels,
-        newLength,
         currentTrack.audioBuffer.sampleRate
       );
-
-      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-        const newData = newBuffer.getChannelData(channel);
-        const beforeData = before.getChannelData(channel);
-        const afterData = after.getChannelData(channel);
-
-        for (let i = 0; i < before.length; i++) {
-          newData[i] = beforeData[i] ?? 0;
-        }
-        for (let i = 0; i < after.length; i++) {
-          newData[before.length + i] = afterData[i] ?? 0;
-        }
-      }
 
       await updateTrackAfterOperation(currentTrack.id, newBuffer, waveformRef);
     } catch (err) {
