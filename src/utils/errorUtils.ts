@@ -9,7 +9,5 @@ export function getErrorMessage(error: unknown, fallback: string = "An error occ
 }
 
 export function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof Error || error instanceof DOMException) && error.name === "AbortError"
-  );
+  return (error instanceof Error || error instanceof DOMException) && error.name === "AbortError";
 }

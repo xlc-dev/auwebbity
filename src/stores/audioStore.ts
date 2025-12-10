@@ -461,11 +461,7 @@ export const useAudioStore = () => {
       return;
     }
 
-    const historyState = await createHistoryState(
-      trackId,
-      track.audioBuffer,
-      track.duration
-    );
+    const historyState = await createHistoryState(trackId, track.audioBuffer, track.duration);
 
     undoStack.push(historyState);
     if (undoStack.length > MAX_HISTORY) {
@@ -480,9 +476,7 @@ export const useAudioStore = () => {
     setAudioStore("redoStackLength", 0);
   };
 
-  const applyHistoryState = async (
-    direction: "undo" | "redo"
-  ): Promise<boolean> => {
+  const applyHistoryState = async (direction: "undo" | "redo"): Promise<boolean> => {
     const sourceStack = direction === "undo" ? undoStack : redoStack;
     const targetStack = direction === "undo" ? redoStack : undoStack;
 

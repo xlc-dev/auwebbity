@@ -44,10 +44,7 @@ export default function App() {
     fileInputRef?.click();
   };
 
-  const handleOperation = async (
-    operation: () => Promise<void>,
-    errorMessage: string
-  ) => {
+  const handleOperation = async (operation: () => Promise<void>, errorMessage: string) => {
     try {
       await operation();
     } catch (err) {
@@ -121,7 +118,9 @@ export default function App() {
         onCut={() => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut")}
         onCopy={() => handleOperation(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
         onPaste={() => handleOperation(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
-        onDelete={() => handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete")}
+        onDelete={() =>
+          handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete")
+        }
       />
       <Toolbar
         waveform={waveformRef() ?? undefined}
@@ -157,6 +156,7 @@ export default function App() {
         setExportFormat={setExportFormat}
         isExporting={isExporting()}
         hasSelection={store.selection !== null}
+        recorder={recorder}
       />
       <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />

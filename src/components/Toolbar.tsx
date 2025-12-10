@@ -1,4 +1,4 @@
-import { Component, Show, createMemo } from "solid-js";
+import { Component, Show } from "solid-js";
 import { Button } from "./Button";
 import { PlaybackControls } from "./PlaybackControls";
 import { ZoomControls } from "./ZoomControls";
@@ -21,29 +21,11 @@ interface ToolbarProps {
   setExportFormat: (format: "wav" | "mp3" | "ogg") => void;
   isExporting: boolean;
   hasSelection: boolean;
+  recorder: ReturnType<typeof useAudioRecorder>;
 }
 
 export const Toolbar: Component<ToolbarProps> = (props) => {
   const { getCurrentTrack, store } = useAudioStore();
-  const recorder = useAudioRecorder();
-
-  const isRecording = () => recorder.isRecording();
-  const recordingDuration = () => recorder.recordingDuration();
-
-  const recordingIcon = createMemo(() => {
-    if (isRecording()) {
-      return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-          <rect x="6" y="6" width="12" height="12" rx="2" />
-        </svg>
-      );
-    }
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
-      </svg>
-    );
-  });
 
   return (
     <div class="fixed bottom-0 left-0 right-0 z-[100] p-1.5 sm:p-2 md:p-3 lg:p-4 pointer-events-none">
@@ -104,29 +86,39 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
           <div class="flex items-center gap-1 sm:gap-1.5">
             <button
               onClick={props.onRecordClick}
+              class="group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0 border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)]"
               classList={{
-                "group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0 bg-[var(--color-recording)] text-white border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.9)] hover:border-[var(--color-recording)] hover:text-white":
-                  isRecording(),
-                "group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0 border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)]":
-                  !isRecording(),
+                "text-[var(--color-recording)] border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.1)] hover:border-[var(--color-recording)] active:bg-[rgba(248,81,73,0.15)]":
+                  props.recorder.isRecording(),
               }}
-              aria-label={isRecording() ? "Stop Recording" : "Start Recording"}
+              aria-label={props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}
             >
-              <span class="flex items-center justify-center w-full h-full [&_svg]:text-inherit relative">
-                {recordingIcon()}
-                <Show when={isRecording()}>
-                  <span class="absolute top-0 right-0 w-2 h-2 bg-white rounded-full animate-pulse"></span>
+              <Show when={props.recorder.isRecording()}>
+                <span class="absolute top-0 right-0 w-2 h-2 bg-[var(--color-recording)] rounded-full animate-ping"></span>
+                <span class="absolute top-0 right-0 w-2 h-2 bg-[var(--color-recording)] rounded-full"></span>
+              </Show>
+              <span class="relative inline-flex items-center justify-center w-full h-full [&_svg]:text-inherit">
+                <Show
+                  when={props.recorder.isRecording()}
+                  fallback={
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
+                    </svg>
+                  }
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
                 </Show>
               </span>
               <span class="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-dark)] text-white text-[0.625rem] sm:text-xs font-medium whitespace-nowrap rounded opacity-0 pointer-events-none transition-[opacity,transform] duration-150 z-[1000] group-hover:opacity-100 group-hover:-translate-y-0.5 [&::after]:content-[''] [&::after]:absolute [&::after]:top-full [&::after]:left-1/2 [&::after]:-translate-x-1/2 [&::after]:border-4 [&::after]:border-transparent [&::after]:border-t-[var(--color-dark)]">
-                {isRecording() ? "Stop Recording" : "Start Recording"}
+                {props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}
               </span>
             </button>
-            <Show when={isRecording()}>
-              <div class="inline-flex items-center gap-1 sm:gap-1.5 py-1 sm:py-1.5 md:py-2 px-1.5 sm:px-2 md:px-3.5 bg-[var(--color-recording)] text-white rounded-md text-[0.625rem] sm:text-xs md:text-[0.8125rem] font-semibold">
-                <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-white rounded-full animate-pulse"></span>
-                <span class="tabular-nums">{formatTime(recordingDuration())}</span>
-              </div>
+            <Show when={props.recorder.isRecording()}>
+              <span class="text-[var(--color-recording)] text-sm font-medium tabular-nums">
+                {formatTime(props.recorder.recordingDuration())}
+              </span>
             </Show>
           </div>
         </div>
