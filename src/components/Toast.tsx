@@ -21,13 +21,7 @@ export const Toast: Component<ToastProps> = (props) => {
   return (
     <div class={`toast toast--${props.type || "error"}`}>
       <div class="toast__content">
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          class="toast__icon"
-        >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="toast__icon">
           {props.type === "success" ? (
             <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
           ) : props.type === "info" ? (

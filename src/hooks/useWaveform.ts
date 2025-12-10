@@ -186,7 +186,8 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       lastValidEnd = clampedEnd;
 
       const now = performance.now();
-      const needsClamping = widthChanged ||
+      const needsClamping =
+        widthChanged ||
         Math.abs(region.start - clampedStart) > 0.001 ||
         Math.abs(region.end - clampedEnd) > 0.001;
 

@@ -33,7 +33,9 @@ export default function App() {
   } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
-  const [toasts, setToasts] = createSignal<Array<{ id: string; message: string; type?: "error" | "success" | "info" }>>([]);
+  const [toasts, setToasts] = createSignal<
+    Array<{ id: string; message: string; type?: "error" | "success" | "info" }>
+  >([]);
   const [isInitialized, setIsInitialized] = createSignal(false);
   const [showResetDialog, setShowResetDialog] = createSignal(false);
   const [showShortcuts, setShowShortcuts] = createSignal(false);
@@ -181,52 +183,52 @@ export default function App() {
 
       setClipboard(null);
 
-    const copiedBuffer = await audioOperations.copy(
-      currentTrack.audioBuffer,
-      store.selection.start,
-      store.selection.end
-    );
-    setClipboard(copiedBuffer);
+      const copiedBuffer = await audioOperations.copy(
+        currentTrack.audioBuffer,
+        store.selection.start,
+        store.selection.end
+      );
+      setClipboard(copiedBuffer);
 
-    const { before, after } = await audioOperations.cut(
-      currentTrack.audioBuffer,
-      store.selection.start,
-      store.selection.end
-    );
+      const { before, after } = await audioOperations.cut(
+        currentTrack.audioBuffer,
+        store.selection.start,
+        store.selection.end
+      );
 
-    const audioContext = new AudioContext();
-    const newLength = before.length + after.length;
-    const newBuffer = audioContext.createBuffer(
-      currentTrack.audioBuffer.numberOfChannels,
-      newLength,
-      currentTrack.audioBuffer.sampleRate
-    );
+      const audioContext = new AudioContext();
+      const newLength = before.length + after.length;
+      const newBuffer = audioContext.createBuffer(
+        currentTrack.audioBuffer.numberOfChannels,
+        newLength,
+        currentTrack.audioBuffer.sampleRate
+      );
 
-    for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-      const newData = newBuffer.getChannelData(channel);
-      const beforeData = before.getChannelData(channel);
-      const afterData = after.getChannelData(channel);
+      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
+        const newData = newBuffer.getChannelData(channel);
+        const beforeData = before.getChannelData(channel);
+        const afterData = after.getChannelData(channel);
 
-      for (let i = 0; i < before.length; i++) {
-        newData[i] = beforeData[i];
+        for (let i = 0; i < before.length; i++) {
+          newData[i] = beforeData[i];
+        }
+        for (let i = 0; i < after.length; i++) {
+          newData[before.length + i] = afterData[i];
+        }
       }
-      for (let i = 0; i < after.length; i++) {
-        newData[before.length + i] = afterData[i];
+
+      const blob = await audioOperations.audioBufferToBlob(newBuffer);
+      const newUrl = URL.createObjectURL(blob);
+
+      const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
+      if (trackIndex !== -1) {
+        setAudioStore("tracks", trackIndex, {
+          ...currentTrack,
+          audioBuffer: newBuffer,
+          audioUrl: newUrl,
+          duration: newBuffer.duration,
+        });
       }
-    }
-
-    const blob = await audioOperations.audioBufferToBlob(newBuffer);
-    const newUrl = URL.createObjectURL(blob);
-
-    const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
-    if (trackIndex !== -1) {
-      setAudioStore("tracks", trackIndex, {
-        ...currentTrack,
-        audioBuffer: newBuffer,
-        audioUrl: newUrl,
-        duration: newBuffer.duration,
-      });
-    }
 
       setSelection(null);
       waveformRef()?.clearSelection();
@@ -303,45 +305,45 @@ export default function App() {
     try {
       await saveToHistory(currentTrack.id);
 
-    const { before, after } = await audioOperations.cut(
-      currentTrack.audioBuffer,
-      store.selection.start,
-      store.selection.end
-    );
+      const { before, after } = await audioOperations.cut(
+        currentTrack.audioBuffer,
+        store.selection.start,
+        store.selection.end
+      );
 
-    const audioContext = new AudioContext();
-    const newLength = before.length + after.length;
-    const newBuffer = audioContext.createBuffer(
-      currentTrack.audioBuffer.numberOfChannels,
-      newLength,
-      currentTrack.audioBuffer.sampleRate
-    );
+      const audioContext = new AudioContext();
+      const newLength = before.length + after.length;
+      const newBuffer = audioContext.createBuffer(
+        currentTrack.audioBuffer.numberOfChannels,
+        newLength,
+        currentTrack.audioBuffer.sampleRate
+      );
 
-    for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-      const newData = newBuffer.getChannelData(channel);
-      const beforeData = before.getChannelData(channel);
-      const afterData = after.getChannelData(channel);
+      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
+        const newData = newBuffer.getChannelData(channel);
+        const beforeData = before.getChannelData(channel);
+        const afterData = after.getChannelData(channel);
 
-      for (let i = 0; i < before.length; i++) {
-        newData[i] = beforeData[i];
+        for (let i = 0; i < before.length; i++) {
+          newData[i] = beforeData[i];
+        }
+        for (let i = 0; i < after.length; i++) {
+          newData[before.length + i] = afterData[i];
+        }
       }
-      for (let i = 0; i < after.length; i++) {
-        newData[before.length + i] = afterData[i];
+
+      const blob = await audioOperations.audioBufferToBlob(newBuffer);
+      const newUrl = URL.createObjectURL(blob);
+
+      const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
+      if (trackIndex !== -1) {
+        setAudioStore("tracks", trackIndex, {
+          ...currentTrack,
+          audioBuffer: newBuffer,
+          audioUrl: newUrl,
+          duration: newBuffer.duration,
+        });
       }
-    }
-
-    const blob = await audioOperations.audioBufferToBlob(newBuffer);
-    const newUrl = URL.createObjectURL(blob);
-
-    const trackIndex = store.tracks.findIndex((t) => t.id === currentTrack.id);
-    if (trackIndex !== -1) {
-      setAudioStore("tracks", trackIndex, {
-        ...currentTrack,
-        audioBuffer: newBuffer,
-        audioUrl: newUrl,
-        duration: newBuffer.duration,
-      });
-    }
 
       setSelection(null);
       waveformRef()?.clearSelection();
@@ -441,7 +443,16 @@ export default function App() {
           <div class="app__footer-left">
             <FloatingButton
               icon={
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M3 7v6h6" />
                   <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
                 </svg>
@@ -453,7 +464,16 @@ export default function App() {
             />
             <FloatingButton
               icon={
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
                   <path d="M21 7v6h-6" />
                   <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
                 </svg>

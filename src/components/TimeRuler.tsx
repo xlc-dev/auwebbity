@@ -181,10 +181,7 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
   return (
     <div class="time-ruler" ref={rulerRef} style={{ width: `${rulerWidth()}px` }}>
       {getTimeMarkers().map((marker) => (
-        <div
-          class="time-ruler-marker"
-          style={{ left: `${marker.position}px` }}
-        >
+        <div class="time-ruler-marker" style={{ left: `${marker.position}px` }}>
           <div class="time-ruler-line" />
           <span class="time-ruler-label">{formatTime(marker.time)}</span>
         </div>
