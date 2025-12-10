@@ -2,10 +2,25 @@
   "name": "auwebbity",
   "type": "module",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "check": "bun run format:check && bunx tsc --noEmit",
+    "preview": "vite preview",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
-  "peerDependencies": {
-    "typescript": "^5"
+  "dependencies": {
+    "solid-js": "^1.9.10",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/core": "^0.12.6",
+    "wavesurfer.js": "^7.8.5"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "prettier": "^3.7.4",
+    "vite": "^7.2.6",
+    "vite-plugin-solid": "^2.11.10",
+    "typescript": "^5.9.3"
   }
 }
