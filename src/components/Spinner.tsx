@@ -15,11 +15,12 @@ export const Spinner: Component<SpinnerProps> = (props) => {
 
   return (
     <div
-      class={`spinner spinner--${size()}`}
+      class="inline-block animate-[spinnerRotate_1s_linear_infinite] text-white"
       style={{ width: sizeMap[size()], height: sizeMap[size()] }}
     >
-      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <svg class="w-full h-full" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle
+          class="fill-none [transform-origin:center] animate-[spinnerDash_1.5s_ease-in-out_infinite]"
           cx="12"
           cy="12"
           r="10"
@@ -31,6 +32,7 @@ export const Spinner: Component<SpinnerProps> = (props) => {
           opacity="0.3"
         />
         <circle
+          class="fill-none [transform-origin:center] animate-[spinnerDash_1.5s_ease-in-out_infinite]"
           cx="12"
           cy="12"
           r="10"

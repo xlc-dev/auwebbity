@@ -14,7 +14,9 @@
     "@ffmpeg/core": "^0.12.10",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@tailwindcss/vite": "^4.1.17",
     "solid-js": "^1.9.10",
+    "tailwindcss": "^4.1.17",
     "wavesurfer.js": "^7.12.1"
   },
   "devDependencies": {

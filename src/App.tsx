@@ -14,8 +14,6 @@ import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { useWaveform } from "./hooks/useWaveform";
 import { audioOperations } from "./utils/audioOperations";
 
-import "./app.css";
-
 export default function App() {
   const {
     store,
@@ -430,7 +428,7 @@ export default function App() {
   };
 
   return (
-    <main class="app">
+    <main class="flex flex-col h-screen overflow-hidden bg-[var(--color-bg-secondary)] relative">
       <input
         ref={fileInputRef}
         type="file"
@@ -439,7 +437,7 @@ export default function App() {
         style={{ display: "none" }}
       />
       <Show when={isInitialized()}>
-        <div class="app__canvas">
+        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 pb-[100px] border-t border-[var(--color-border)]">
           <WaveformView onWaveformReady={setWaveformRef} />
           <SelectionToolbar
             onCut={handleCut}
@@ -450,9 +448,9 @@ export default function App() {
         </div>
       </Show>
 
-      <div class="app__footer">
-        <div class="app__footer-content">
-          <div class="app__footer-left">
+      <div class="fixed bottom-0 left-0 right-0 z-[100] p-4 pointer-events-none">
+        <div class="flex items-center justify-center gap-8 max-w-[1200px] mx-auto py-3.5 px-7 bg-[var(--color-bg-elevated)] border-x border-b border-[var(--color-border)] rounded-b-xl shadow-[0_-4px_24px_var(--color-shadow),0_0_0_1px_rgba(255,255,255,0.05)_inset] pointer-events-auto backdrop-blur-[10px]">
+          <div class="flex items-center gap-2">
             <FloatingButton
               icon={
                 <svg
@@ -506,8 +504,8 @@ export default function App() {
               variant="secondary"
             />
             <Show when={recorder.isRecording()}>
-              <div class="recording-indicator">
-                <span class="recording-indicator__dot"></span>
+              <div class="inline-flex items-center gap-2 py-2 px-3.5 bg-[var(--color-recording)] text-white rounded-md text-[0.8125rem] font-semibold mr-2 shadow-[0_2px_8px_rgba(248,81,73,0.3)]">
+                <span class="w-2 h-2 bg-white rounded-full animate-[pulse_1.5s_ease-in-out_infinite]"></span>
                 <span>Recording</span>
               </div>
             </Show>
@@ -540,17 +538,18 @@ export default function App() {
                 }
               }}
               classList={{
-                "floating-button--recording": recorder.isRecording(),
+                "bg-[var(--color-recording)] text-white border-[var(--color-recording)] shadow-[0_2px_8px_rgba(248,81,73,0.4)] animate-[recordingPulse_2s_ease-in-out_infinite]":
+                  recorder.isRecording(),
               }}
-              variant={recorder.isRecording() ? undefined : "primary"}
+              variant={recorder.isRecording() ? undefined : "secondary"}
             />
           </div>
-          <div class="app__footer-center">
+          <div class="flex items-center justify-center flex-1">
             <PlaybackControls waveform={waveformRef() ?? undefined} />
           </div>
-          <div class="app__footer-right">
+          <div class="flex items-center gap-1.5">
             <ZoomControls />
-            <div class="export-controls">
+            <div class="flex items-center gap-1.5">
               <Dropdown
                 options={[
                   { value: "wav", label: "WAV" },
@@ -596,7 +595,7 @@ export default function App() {
       <ToastContainer toasts={toasts()} onDismiss={removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />
       <Show when={isLoading()}>
-        <div class="loading-overlay">
+        <div class="fixed inset-0 bg-black/50 z-[1500] flex items-center justify-center backdrop-blur-[2px]">
           <Spinner size="large" />
         </div>
       </Show>

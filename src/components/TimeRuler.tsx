@@ -90,11 +90,19 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
   const effectiveWidth = width() || container?.scrollWidth || container?.offsetWidth || 0;
 
   return (
-    <div class="time-ruler" style={{ width: effectiveWidth > 0 ? `${effectiveWidth}px` : "100%" }}>
+    <div
+      class="relative w-full min-w-fit h-10 border-b border-[var(--color-border)] bg-gradient-to-b from-[var(--color-bg-elevated)] to-[var(--color-bg)] flex-shrink-0 py-2 px-4 m-0 mb-2 rounded-tl-lg rounded-tr-lg"
+      style={{ width: effectiveWidth > 0 ? `${effectiveWidth}px` : "100%" }}
+    >
       {markers().map((marker) => (
-        <div class="time-ruler-marker" style={{ left: `${marker.position}px` }}>
-          <div class="time-ruler-line" />
-          <span class="time-ruler-label">{formatTime(marker.time)}</span>
+        <div
+          class="absolute top-0 h-full pointer-events-none"
+          style={{ left: `${marker.position}px` }}
+        >
+          <div class="w-px h-full bg-[var(--color-border)] opacity-40" />
+          <span class="absolute top-2.5 left-1 text-[0.6875rem] font-medium text-[var(--color-text)] tabular-nums whitespace-nowrap bg-[var(--color-bg-elevated)] py-0.5 px-1.5 leading-tight rounded border border-[var(--color-border)]">
+            {formatTime(marker.time)}
+          </span>
         </div>
       ))}
     </div>

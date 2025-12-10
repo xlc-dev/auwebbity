@@ -69,18 +69,22 @@ export const FloatingButton: Component<FloatingButtonProps> = (props) => {
       ref={buttonRef}
       onClick={props.onClick}
       disabled={props.disabled}
-      class="floating-button"
+      class="group relative flex items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] cursor-pointer transition-all duration-200 p-0 overflow-visible shadow-[0_1px_3px_var(--color-shadow)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px hover:shadow-[0_2px_6px_var(--color-shadow)] active:bg-[var(--color-active)] active:translate-y-0 active:shadow-[0_1px_2px_var(--color-shadow)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[var(--color-bg-elevated)] disabled:hover:border-[var(--color-border)] disabled:hover:translate-y-0 disabled:hover:shadow-[0_1px_3px_var(--color-shadow)] w-9 h-9"
       classList={{
-        "floating-button--primary": !props.variant || props.variant === "primary",
-        "floating-button--secondary": props.variant === "secondary",
-        "floating-button--danger": props.variant === "danger",
-        "floating-button--disabled": props.disabled,
+        "bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-[0_2px_8px_rgba(74,158,255,0.3)] hover:bg-[var(--color-primary-hover)] hover:border-[var(--color-primary-hover)] hover:shadow-[0_4px_12px_rgba(74,158,255,0.4)]":
+          !props.variant || props.variant === "primary",
+        "bg-[var(--color-bg)] text-[var(--color-text)]": props.variant === "secondary",
+        "bg-[var(--color-bg-elevated)] text-[var(--color-recording)] border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.1)] hover:border-[var(--color-recording)] hover:shadow-[0_2px_8px_rgba(248,81,73,0.2)] active:bg-[rgba(248,81,73,0.15)]":
+          props.variant === "danger",
         ...props.classList,
       }}
       aria-label={props.label}
     >
-      <span class="floating-button__icon">{props.icon}</span>
-      <span ref={tooltipRef} class="floating-button__tooltip">
+      <span class="flex items-center justify-center w-full h-full">{props.icon}</span>
+      <span
+        ref={tooltipRef}
+        class="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 py-1.5 px-2.5 bg-[var(--color-dark)] text-white text-xs font-medium whitespace-nowrap rounded opacity-0 pointer-events-none transition-[opacity,transform] duration-150 z-[1000] shadow-[0_2px_8px_rgba(0,0,0,0.15)] max-w-[calc(100vw-2rem)] overflow-hidden text-ellipsis [&::after]:content-[''] [&::after]:absolute [&::after]:top-full [&::after]:left-1/2 [&::after]:-translate-x-1/2 [&::after]:border-4 [&::after]:border-transparent [&::after]:border-t-[var(--color-dark)] group-hover:opacity-100 group-hover:-translate-y-0.5"
+      >
         {props.label}
       </span>
     </button>

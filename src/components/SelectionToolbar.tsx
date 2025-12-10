@@ -18,7 +18,7 @@ export const SelectionToolbar: Component<SelectionToolbarProps> = (props) => {
 
   return (
     <Show when={shouldShow()}>
-      <div class="selection-toolbar">
+      <div class="fixed bottom-[calc(1rem+60px)] left-1/2 -translate-x-1/2 flex gap-2 z-[99] px-2 py-1.5 bg-[var(--color-bg-elevated)] border-x border-t border-[var(--color-border)] rounded-t-xl shadow-[0_-4px_16px_var(--color-shadow),0_0_0_1px_rgba(255,255,255,0.05)_inset] backdrop-blur-[10px] max-w-[1200px]">
         <FloatingButton
           icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
