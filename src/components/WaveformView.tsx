@@ -41,8 +41,8 @@ export const WaveformView: Component<WaveformViewProps> = (props) => {
     <div class="waveform-container">
       <Show when={hasTracks()}>
         <div class="waveform-track-background">
+          <TimeRuler containerRef={() => containerRef} />
           <div class="waveform-scroll-wrapper">
-            <TimeRuler containerRef={() => containerRef} />
             <div ref={containerRef} class="waveform-view" />
           </div>
         </div>
