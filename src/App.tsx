@@ -1,5 +1,5 @@
-import { createSignal, Show, onMount } from "solid-js";
-import { WaveformView } from "./components/WaveformView";
+import { createSignal, Show, onMount, createEffect, untrack } from "solid-js";
+import { MultiTrackView } from "./components/MultiTrackView";
 import { SelectionToolbar } from "./components/SelectionToolbar";
 import { Toolbar } from "./components/Toolbar";
 import { ToastContainer } from "./components/Toast";
@@ -18,9 +18,22 @@ import { formatDateForFilename } from "./utils/dateUtils";
 import { getErrorMessage } from "./utils/errorUtils";
 
 export default function App() {
-  const { store, getCurrentTrack, resetStore, undo, redo, canUndo, canRedo } = useAudioStore();
+  const {
+    store,
+    getCurrentTrack,
+    resetStore,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    setCurrentTime,
+    setPlaying,
+  } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
+  const [waveformMap, setWaveformMap] = createSignal<Map<string, ReturnType<typeof useWaveform>>>(
+    new Map()
+  );
   const toast = useToast();
   const [isInitialized, setIsInitialized] = createSignal(false);
   const [showResetDialog, setShowResetDialog] = createSignal(false);
@@ -91,12 +104,62 @@ export default function App() {
     onDelete: () => handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete"),
     onUndo: () => undo(),
     onRedo: () => redo(),
+    onPlayPause: () => {
+      if (store.isPlaying) {
+        pauseAllTracks();
+      } else {
+        playAllTracks();
+      }
+    },
   });
 
   onMount(async () => {
     await initializeStore();
     setIsInitialized(true);
   });
+
+  createEffect(() => {
+    const currentTrackId = store.currentTrackId;
+    const map = waveformMap();
+    if (currentTrackId) {
+      const waveform = map.get(currentTrackId);
+      if (waveform) {
+        setWaveformRef(waveform);
+      }
+    }
+  });
+
+  const playAllTracks = () => {
+    const map = waveformMap();
+    map.forEach((waveform) => {
+      waveform.play();
+    });
+  };
+
+  const pauseAllTracks = () => {
+    const map = waveformMap();
+    map.forEach((waveform) => {
+      waveform.pause();
+    });
+  };
+
+  const stopAllTracks = () => {
+    const map = waveformMap();
+    map.forEach((waveform) => {
+      waveform.stop();
+    });
+  };
+
+  const seekAllTracks = (time: number) => {
+    const map = waveformMap();
+    map.forEach((waveform, trackId) => {
+      const track = store.tracks.find((t) => t.id === trackId);
+      if (track && track.duration > 0) {
+        const normalizedPosition = Math.max(0, Math.min(1, time / track.duration));
+        waveform.seekTo(normalizedPosition);
+      }
+    });
+  };
 
   const isLoading = () => fileImport.isLoading() || audioOps.isLoading();
 
@@ -110,8 +173,16 @@ export default function App() {
         style={{ display: "none" }}
       />
       <Show when={isInitialized()}>
-        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 pb-[70px] sm:pb-[80px] md:pb-[90px] lg:pb-[100px] border-t border-[var(--color-border)]">
-          <WaveformView onWaveformReady={setWaveformRef} />
+        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 border-t border-[var(--color-border)] pb-[70px] sm:pb-[80px] md:pb-[90px] lg:pb-[100px] p-2 sm:p-3 md:p-4">
+          <MultiTrackView
+            onWaveformReady={(waveform, trackId) => {
+              setWaveformMap((map) => {
+                const newMap = new Map(map);
+                newMap.set(trackId, waveform);
+                return newMap;
+              });
+            }}
+          />
         </div>
       </Show>
       <SelectionToolbar
@@ -124,6 +195,10 @@ export default function App() {
       />
       <Toolbar
         waveform={waveformRef() ?? undefined}
+        onPlayAll={playAllTracks}
+        onPauseAll={pauseAllTracks}
+        onStopAll={stopAllTracks}
+        onSeekAll={seekAllTracks}
         onImportClick={handleImportClick}
         onExport={handleExport}
         onReset={handleReset}

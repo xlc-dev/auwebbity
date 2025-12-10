@@ -8,6 +8,7 @@ export interface AudioTrack {
   audioBuffer: AudioBuffer | null;
   audioUrl: string;
   duration: number;
+  backgroundColor: string | null;
 }
 
 export interface Selection {
@@ -139,6 +140,7 @@ async function saveState(
         name: track.name,
         audioUrl: track.audioUrl,
         duration: track.duration,
+        backgroundColor: track.backgroundColor || null,
       })),
       currentTrackId: state.currentTrackId,
       undoStack: await Promise.all(
@@ -219,6 +221,7 @@ async function loadState(): Promise<
         return {
           ...track,
           audioBuffer,
+          backgroundColor: track.backgroundColor || null,
         };
       })
     );
@@ -362,7 +365,10 @@ export const initializeStore = async () => {
 export const useAudioStore = () => {
   const addTrack = (track: Omit<AudioTrack, "id">) => {
     const id = crypto.randomUUID();
-    setAudioStore("tracks", (tracks) => [...tracks, { ...track, id }]);
+    setAudioStore("tracks", (tracks) => [
+      ...tracks,
+      { ...track, backgroundColor: track.backgroundColor || null, id },
+    ]);
     setAudioStore("currentTrackId", id);
     scheduleSave();
     return id;
@@ -537,6 +543,36 @@ export const useAudioStore = () => {
   const canUndo = () => audioStore.undoStackLength > 0;
   const canRedo = () => audioStore.redoStackLength > 0;
 
+  const setCurrentTrackId = (trackId: string | null) => {
+    setAudioStore("currentTrackId", trackId);
+    setAudioStore("selection", null);
+    scheduleSave();
+  };
+
+  const deleteTrack = (trackId: string) => {
+    const track = audioStore.tracks.find((t) => t.id === trackId);
+    if (!track) return;
+
+    if (track.audioUrl) {
+      URL.revokeObjectURL(track.audioUrl);
+    }
+
+    setAudioStore("tracks", (tracks) => tracks.filter((t) => t.id !== trackId));
+
+    if (audioStore.currentTrackId === trackId) {
+      const remainingTracks = audioStore.tracks.filter((t) => t.id !== trackId);
+      const firstRemainingTrack = remainingTracks[0];
+      if (firstRemainingTrack) {
+        setAudioStore("currentTrackId", firstRemainingTrack.id);
+      } else {
+        setAudioStore("currentTrackId", null);
+      }
+    }
+
+    setAudioStore("selection", null);
+    scheduleSave();
+  };
+
   return {
     store: audioStore,
     setAudioStore: updateAudioStore,
@@ -555,5 +591,7 @@ export const useAudioStore = () => {
     redo,
     canUndo,
     canRedo,
+    setCurrentTrackId,
+    deleteTrack,
   };
 };

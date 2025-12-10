@@ -22,6 +22,10 @@ interface ToolbarProps {
   isExporting: boolean;
   hasSelection: boolean;
   recorder: ReturnType<typeof useAudioRecorder>;
+  onPlayAll?: () => void;
+  onPauseAll?: () => void;
+  onStopAll?: () => void;
+  onSeekAll?: (normalizedPosition: number) => void;
 }
 
 export const Toolbar: Component<ToolbarProps> = (props) => {
@@ -73,16 +77,6 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             disabled={!props.canRedo}
             variant="secondary"
           />
-          <Button
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
-              </svg>
-            }
-            label="Import Audio"
-            onClick={props.onImportClick}
-            variant="secondary"
-          />
           <div class="flex items-center gap-1 sm:gap-1.5">
             <button
               onClick={props.onRecordClick}
@@ -123,7 +117,13 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
           </div>
         </div>
         <div class="flex items-center justify-center flex-1 min-w-0 w-full sm:w-auto order-3 sm:order-2">
-          <PlaybackControls waveform={props.waveform} />
+          <PlaybackControls
+            waveform={props.waveform}
+            onPlayAll={props.onPlayAll}
+            onPauseAll={props.onPauseAll}
+            onStopAll={props.onStopAll}
+            onSeekAll={props.onSeekAll}
+          />
         </div>
         <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center order-2 sm:order-3">
           <ZoomControls />
@@ -156,6 +156,16 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
               variant="secondary"
             />
           </div>
+          <Button
+            icon={
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
+              </svg>
+            }
+            label="Import Audio"
+            onClick={props.onImportClick}
+            variant="secondary"
+          />
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

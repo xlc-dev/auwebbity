@@ -5,38 +5,61 @@ import { Button } from "./Button";
 
 interface PlaybackControlsProps {
   waveform?: ReturnType<typeof import("../hooks/useWaveform").useWaveform>;
+  onPlayAll?: () => void;
+  onPauseAll?: () => void;
+  onStopAll?: () => void;
+  onSeekAll?: (time: number) => void;
 }
 
 export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   const { store, setCurrentTime } = useAudioStore();
 
   const handlePlayPause = () => {
-    if (!props.waveform) return;
     if (store.isPlaying) {
-      props.waveform.pause();
+      if (props.onPauseAll) {
+        props.onPauseAll();
+      } else if (props.waveform) {
+        props.waveform.pause();
+      }
     } else {
-      props.waveform.play();
+      if (props.onPlayAll) {
+        props.onPlayAll();
+      } else if (props.waveform) {
+        props.waveform.play();
+      }
     }
   };
 
   const handleStop = () => {
-    if (!props.waveform) return;
-    props.waveform.stop();
+    if (props.onStopAll) {
+      props.onStopAll();
+    } else if (props.waveform) {
+      props.waveform.stop();
+    }
   };
 
   let seekbarRef: HTMLDivElement | undefined;
   let isDragging = false;
 
   const updateSeek = (e: MouseEvent) => {
-    if (!props.waveform || !store.tracks.length || !seekbarRef) return;
+    if (!store.tracks.length || !seekbarRef) return;
     const rect = seekbarRef.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const width = rect.width;
     const progress = Math.max(0, Math.min(1, x / width));
-    const duration = store.tracks.find((t) => t.id === store.currentTrackId)?.duration || 0;
-    const newTime = progress * duration;
-    props.waveform.seekTo(newTime / duration);
+    const maxDuration = Math.max(...store.tracks.map((t) => t.duration));
+    const newTime = progress * maxDuration;
     setCurrentTime(newTime);
+
+    if (props.onSeekAll) {
+      props.onSeekAll(newTime);
+    } else if (props.waveform) {
+      const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
+      const duration = currentTrack?.duration || maxDuration;
+      if (duration > 0) {
+        props.waveform.seekTo(newTime / duration);
+      }
+    }
   };
 
   const handleSeek = (e: MouseEvent) => {
@@ -69,7 +92,10 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   });
 
   const currentTrack = () => store.tracks.find((t) => t.id === store.currentTrackId);
-  const duration = () => currentTrack()?.duration || 0;
+  const duration = () => {
+    if (store.tracks.length === 0) return 0;
+    return Math.max(...store.tracks.map((t) => t.duration), 0);
+  };
   const progress = () => {
     const dur = duration();
     if (dur <= 0) return 0;

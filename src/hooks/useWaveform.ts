@@ -4,13 +4,17 @@ import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js";
 import { useAudioStore } from "../stores/audioStore";
 import { isAbortError } from "../utils/errorUtils";
 
-export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
+export const useWaveform = (
+  containerRef: () => HTMLDivElement | undefined,
+  options?: { autoLoad?: boolean; isCurrent?: boolean }
+) => {
+  const autoLoad = options?.autoLoad !== false;
+  const isCurrent = options?.isCurrent ?? true;
   let wavesurfer: WaveSurfer | null = null;
   let regionsPlugin: RegionsPlugin | null = null;
   let dragSelectionCleanup: (() => void) | null = null;
   let isSeeking = false;
   let seekingTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  let pausedTime: number | null = null;
   let isDragging = false;
   let originalRegionWidth: number | null = null;
   let lastClampTime = 0;
@@ -31,13 +35,13 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       container,
       waveColor: "#30363d",
       progressColor: "#4a9eff",
-      cursorColor: "#ffffff",
-      cursorWidth: 3,
+      cursorColor: "transparent",
+      cursorWidth: 0,
       barWidth: 2,
       barRadius: 1,
       height: 200,
       normalize: true,
-      interact: true,
+      interact: isCurrent,
       dragToSeek: false,
     });
 
@@ -53,37 +57,58 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
         regionsPlugin.clearRegions();
         setSelection(null);
 
-        dragSelectionCleanup = regionsPlugin.enableDragSelection({
-          color: "rgba(74, 158, 255, 0.3)",
-          drag: true,
-          resize: false,
-        });
+        if (isCurrent) {
+          dragSelectionCleanup = regionsPlugin.enableDragSelection({
+            color: "rgba(74, 158, 255, 0.3)",
+            drag: true,
+            resize: false,
+          });
+        }
+      }
+
+      const duration = wavesurfer.getDuration() || 0;
+      if (duration > 0) {
+        const currentTime = store.currentTime;
+        const progress = Math.max(0, Math.min(1, currentTime / duration));
+        try {
+          wavesurfer.seekTo(progress);
+        } catch (err) {
+          console.warn("Failed to seek on ready:", err);
+        }
       }
     });
 
     wavesurfer.on("play", () => {
-      setPlaying(true);
+      if (isCurrent) {
+        setPlaying(true);
+      }
     });
 
     wavesurfer.on("pause", () => {
-      setPlaying(false);
-      try {
-        const time = wavesurfer?.getCurrentTime() || 0;
-        pausedTime = time;
-        setCurrentTime(time);
-      } catch {
-        setCurrentTime(0);
+      if (isCurrent) {
+        setPlaying(false);
+        try {
+          const time = wavesurfer?.getCurrentTime() || 0;
+          setCurrentTime(time);
+        } catch {
+          setCurrentTime(0);
+        }
       }
     });
 
     wavesurfer.on("finish", () => {
-      setPlaying(false);
       try {
-        const dur = wavesurfer?.getDuration() || 0;
-        if (dur > 0) {
-          setCurrentTime(
-            Math.max(dur, store.tracks.find((t) => t.id === store.currentTrackId)?.duration || dur)
-          );
+        const maxDur =
+          store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+        if (maxDur > 0) {
+          const trackDuration = wavesurfer?.getDuration() || 0;
+          setCurrentTime(Math.max(store.currentTime, trackDuration));
+          if (trackDuration >= maxDur - 0.01) {
+            setCurrentTime(maxDur);
+            if (isCurrent) {
+              setPlaying(false);
+            }
+          }
         }
       } catch {}
     });
@@ -91,9 +116,18 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     wavesurfer.on("timeupdate", (time) => {
       if (isSeeking || !store.isPlaying) return;
       try {
-        const dur = wavesurfer?.getDuration() || 0;
-        if (dur > 0 && time >= dur - 0.01) {
-          setCurrentTime(dur);
+        const maxDur =
+          store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+        if (maxDur > 0) {
+          const currentMaxTime = Math.max(time, store.currentTime);
+          if (currentMaxTime >= maxDur - 0.01) {
+            setCurrentTime(maxDur);
+            if (isCurrent) {
+              setPlaying(false);
+            }
+          } else {
+            setCurrentTime(currentMaxTime);
+          }
         } else {
           setCurrentTime(time);
         }
@@ -102,12 +136,54 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       }
     });
 
+    createEffect(() => {
+      if (!wavesurfer || !isAudioLoaded) return;
+      if (!isCurrent) return;
+
+      const duration = wavesurfer.getDuration() || 0;
+      if (duration <= 0) return;
+
+      const currentTime = store.currentTime;
+      const progress = Math.max(0, Math.min(1, currentTime / duration));
+
+      try {
+        wavesurfer.seekTo(progress);
+      } catch (err) {
+        console.warn("Failed to seek waveform:", err);
+      }
+
+      if (store.isPlaying) {
+        try {
+          const duration = wavesurfer.getDuration() || 0;
+          if (duration > 0) {
+            const currentTime = store.currentTime;
+            const clampedTime = Math.max(0, Math.min(duration, currentTime));
+            const seekPosition = clampedTime / duration;
+            wavesurfer.seekTo(seekPosition);
+
+            if (!wavesurfer.isPlaying() && clampedTime < duration) {
+              wavesurfer.play();
+            }
+          }
+        } catch (err) {
+          console.warn("Failed to play waveform:", err);
+        }
+      } else {
+        try {
+          if (wavesurfer.isPlaying()) {
+            wavesurfer.pause();
+          }
+        } catch (err) {
+          console.warn("Failed to pause waveform:", err);
+        }
+      }
+    });
+
     wavesurfer.on("seeking", (time) => {
       if (seekingTimeoutId) {
         clearTimeout(seekingTimeoutId);
       }
       isSeeking = true;
-      pausedTime = null;
       setCurrentTime(time);
       seekingTimeoutId = setTimeout(() => {
         isSeeking = false;
@@ -116,6 +192,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     wavesurfer.on("click", (relativeX) => {
+      if (!isCurrent) return;
       if (isDragging) {
         isDragging = false;
         return;
@@ -124,14 +201,13 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       const duration = wavesurfer?.getDuration() || 0;
       if (duration > 0) {
         const newTime = relativeX * duration;
-        pausedTime = null;
         setCurrentTime(newTime);
         wavesurfer?.seekTo(relativeX);
       }
     });
 
     regionsPlugin.on("region-initialized", (region) => {
-      if (!region) return;
+      if (!region || !isCurrent) return;
       isDragging = true;
       const existingRegions = regionsPlugin?.getRegions() || [];
       existingRegions.forEach((r) => {
@@ -142,7 +218,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     regionsPlugin.on("region-created", (region) => {
-      if (!region) return;
+      if (!region || !isCurrent) return;
       isDragging = false;
       originalRegionWidth = region.end - region.start;
       region.setOptions({
@@ -156,7 +232,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     regionsPlugin.on("region-clicked", (region) => {
-      if (!region) return;
+      if (!region || !isCurrent) return;
       originalRegionWidth = region.end - region.start;
       setSelection({
         start: region.start,
@@ -165,13 +241,14 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     });
 
     regionsPlugin.on("region-update", (region) => {
+      if (!isCurrent) return;
       if (originalRegionWidth === null && region) {
         originalRegionWidth = region.end - region.start;
       }
     });
 
     regionsPlugin.on("region-updated", (region) => {
-      if (!region) return;
+      if (!region || !isCurrent) return;
       const duration = wavesurfer?.getDuration() || 0;
       if (duration <= 0) {
         setSelection({
@@ -281,22 +358,35 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
         return;
       }
 
+      const duration = wavesurfer.getDuration();
+
       if (previousUrl !== null && previousUrl !== url) {
         setCurrentTime(0);
-        pausedTime = null;
         wavesurfer.seekTo(0);
         if (wasPlaying) {
           wavesurfer.play();
         }
       } else {
-        const currentTime = store.currentTime;
-        const duration = wavesurfer.getDuration();
-        if (duration > 0 && currentTime > 0) {
-          wavesurfer.seekTo(Math.max(0, Math.min(1, currentTime / duration)));
+        if (duration > 0) {
+          const currentTime = store.currentTime;
+          const progress = Math.max(0, Math.min(1, currentTime / duration));
+          wavesurfer.seekTo(progress);
         }
         if (wasPlaying && duration > 0) {
           wavesurfer.play();
         }
+      }
+
+      if (duration > 0) {
+        const currentTime = store.currentTime;
+        const progress = Math.max(0, Math.min(1, currentTime / duration));
+        requestAnimationFrame(() => {
+          try {
+            wavesurfer?.seekTo(progress);
+          } catch (err) {
+            console.warn("Failed to seek after load:", err);
+          }
+        });
       }
     } catch (err) {
       if (abortController.signal.aborted || isAbortError(err)) return;
@@ -311,24 +401,22 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
   };
 
   const play = () => {
-    if (!wavesurfer) return;
+    if (!wavesurfer || !isAudioLoaded) return;
     try {
       const duration = wavesurfer.getDuration();
       if (!duration || duration <= 0) return;
 
-      let resumeTime = pausedTime !== null ? pausedTime : store.currentTime;
-      pausedTime = null;
-
-      if (resumeTime >= duration - 0.01) {
-        resumeTime = 0;
-      }
-
-      const clampedTime = Math.max(0, Math.min(duration, resumeTime));
+      const currentTime = store.currentTime;
+      const clampedTime = Math.max(0, Math.min(duration, currentTime));
       const seekPosition = clampedTime / duration;
-      wavesurfer.seekTo(seekPosition);
-      setCurrentTime(clampedTime);
 
+      wavesurfer.seekTo(seekPosition);
       wavesurfer.play();
+
+      if (isCurrent) {
+        setCurrentTime(clampedTime);
+        setPlaying(true);
+      }
     } catch {}
   };
 
@@ -343,9 +431,13 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     if (!wavesurfer) return;
     try {
       wavesurfer.stop();
-      setCurrentTime(0);
+      if (isCurrent) {
+        setCurrentTime(0);
+      }
     } catch {
-      setCurrentTime(0);
+      if (isCurrent) {
+        setCurrentTime(0);
+      }
     }
   };
 
@@ -357,9 +449,10 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
 
       const clampedPosition = Math.max(0, Math.min(1, normalizedPosition));
       const seekTime = clampedPosition * duration;
-      pausedTime = null;
       wavesurfer.seekTo(clampedPosition);
-      setCurrentTime(seekTime);
+      if (isCurrent) {
+        setCurrentTime(seekTime);
+      }
     } catch {}
   };
 
@@ -418,10 +511,10 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     setSelection(null);
     setCurrentTime(0);
     setPlaying(false);
-    pausedTime = null;
   };
 
   createEffect(() => {
+    if (!autoLoad) return;
     const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
     const audioUrl = currentTrack?.audioUrl;
     const tracksLength = store.tracks.length;
@@ -435,8 +528,114 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
 
   createEffect(() => {
     if (!wavesurfer || !isAudioLoaded) return;
-    setZoom(store.zoom);
+    const duration = wavesurfer.getDuration();
+    if (!duration || duration <= 0) return;
+
+    const container = containerRef();
+    if (!container) return;
+
+    const maxDuration = Math.max(...store.tracks.map((t) => t.duration), 0);
+    if (maxDuration <= 0) return;
+
+    const containerWidth =
+      container.parentElement?.offsetWidth || container.parentElement?.clientWidth || 0;
+    if (containerWidth <= 0) return;
+
+    const pixelsPerSecond = (containerWidth / maxDuration) * (store.zoom / 100);
+    const zoomForThisTrack = pixelsPerSecond;
+
+    try {
+      wavesurfer.zoom(zoomForThisTrack);
+    } catch (err) {
+      if (
+        isAbortError(err) ||
+        (err instanceof Error &&
+          (err.message.includes("No audio loaded") || err.message.includes("aborted")))
+      ) {
+        return;
+      }
+    }
   });
+
+  createEffect(() => {
+    if (!wavesurfer || !isAudioLoaded) return;
+    const wrapper = wavesurfer.getWrapper();
+    if (!wrapper) return;
+
+    const hideCursor = () => {
+      try {
+        const cursorElements = wrapper.querySelectorAll('[data-name="cursor"]');
+        cursorElements.forEach((el) => {
+          (el as HTMLElement).style.display = "none";
+          (el as HTMLElement).style.visibility = "hidden";
+          (el as HTMLElement).style.opacity = "0";
+        });
+      } catch {}
+    };
+
+    hideCursor();
+
+    const observer = new MutationObserver(hideCursor);
+    observer.observe(wrapper, { childList: true, subtree: true });
+
+    return () => observer.disconnect();
+  });
+
+  createEffect(() => {
+    if (!regionsPlugin || !isAudioLoaded) return;
+    const selection = store.selection;
+    const currentRegions = regionsPlugin.getRegions();
+
+    if (!selection) {
+      if (currentRegions.length > 0) {
+        regionsPlugin.clearRegions();
+      }
+      return;
+    }
+
+    const duration = wavesurfer?.getDuration() || 0;
+    if (duration <= 0) return;
+
+    if (currentRegions.length === 0) {
+      regionsPlugin.addRegion({
+        start: selection.start,
+        end: selection.end,
+        color: "rgba(74, 158, 255, 0.3)",
+        drag: isCurrent,
+        resize: false,
+      });
+    } else {
+      const region = currentRegions[0];
+      if (
+        region &&
+        (Math.abs(region.start - selection.start) > 0.001 ||
+          Math.abs(region.end - selection.end) > 0.001)
+      ) {
+        region.setOptions({
+          start: selection.start,
+          end: selection.end,
+        });
+      }
+    }
+  });
+
+  const getCurrentTime = () => {
+    if (!wavesurfer || !isAudioLoaded) return 0;
+    try {
+      return wavesurfer.getCurrentTime() || 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const isPlaying = () => {
+    if (!wavesurfer) return false;
+    try {
+      return wavesurfer.isPlaying();
+    } catch {
+      return false;
+    }
+  };
 
   return {
     loadAudio,
@@ -447,5 +646,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     setZoom,
     clearSelection,
     clearAudio,
+    getCurrentTime,
+    isPlaying,
   };
 };

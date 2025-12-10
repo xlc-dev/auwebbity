@@ -19,9 +19,9 @@ export const WaveformView: Component<WaveformViewProps> = (props) => {
   const hasTracks = () => store.tracks.length > 0;
 
   return (
-    <div class="w-full h-full relative flex flex-col items-center p-2 sm:p-4 md:p-6 lg:p-8 overflow-hidden">
+    <div class="w-full h-full relative flex flex-col overflow-hidden">
       <Show when={hasTracks()}>
-        <div class="w-full max-w-[1200px] bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg relative flex flex-col h-full overflow-hidden">
+        <div class="w-full h-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg relative flex flex-col overflow-hidden">
           <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
             <div class="flex flex-col">
               <TimeRuler containerRef={() => containerRef} />

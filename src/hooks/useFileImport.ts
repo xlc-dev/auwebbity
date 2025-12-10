@@ -21,6 +21,7 @@ export const useFileImport = () => {
         audioBuffer,
         audioUrl,
         duration: audioBuffer.duration,
+        backgroundColor: null,
       });
     } catch (err) {
       throw err;

@@ -9,6 +9,7 @@ interface UseKeyboardShortcutsOptions {
   onDelete: () => void;
   onUndo: () => void;
   onRedo: () => void;
+  onPlayPause?: () => void;
 }
 
 export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
@@ -23,16 +24,21 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
       if (isInput) return;
 
       e.preventDefault();
-      const waveform = options.waveform();
-      if (!waveform) return;
 
-      const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
-      if (!currentTrack) return;
-
-      if (store.isPlaying) {
-        waveform.pause();
+      if (options.onPlayPause) {
+        options.onPlayPause();
       } else {
-        waveform.play();
+        const waveform = options.waveform();
+        if (!waveform) return;
+
+        const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
+        if (!currentTrack) return;
+
+        if (store.isPlaying) {
+          waveform.pause();
+        } else {
+          waveform.play();
+        }
       }
       return;
     }

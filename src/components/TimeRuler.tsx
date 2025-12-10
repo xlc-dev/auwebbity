@@ -9,8 +9,7 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
   const { store } = useAudioStore();
   const [width, setWidth] = createSignal(0);
 
-  const currentTrack = () => store.tracks.find((t) => t.id === store.currentTrackId);
-  const duration = () => currentTrack()?.duration || 0;
+  const duration = () => Math.max(...store.tracks.map((t) => t.duration), 0);
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
