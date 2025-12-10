@@ -20,7 +20,7 @@ export const Toast: Component<ToastProps> = (props) => {
 
   return (
     <div
-      class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg py-3.5 px-4 shadow-[0_4px_12px_var(--color-shadow)] animate-[toastSlideIn_0.3s_ease-out] min-w-[300px]"
+      class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg py-3.5 px-4 animate-[toastSlideIn_0.3s_ease-out] min-w-[300px]"
       classList={{
         "border-l-4 border-l-[#f85149]": props.type === "error" || !props.type,
         "border-l-4 border-l-[#3fb950]": props.type === "success",

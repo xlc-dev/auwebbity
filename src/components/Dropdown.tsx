@@ -59,7 +59,7 @@ export const Dropdown: Component<DropdownProps> = (props) => {
       <button
         ref={buttonRef}
         type="button"
-        class="flex items-center gap-2 py-1.5 px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 min-w-[70px] font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] focus:outline-none focus:border-[var(--color-primary)] focus:shadow-[0_0_0_3px_rgba(74,158,255,0.1)] disabled:opacity-50 disabled:cursor-not-allowed"
+        class="flex items-center gap-2 py-1.5 px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 min-w-[70px] font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] focus:outline-none focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed"
         classList={{
           "border-[var(--color-primary)]": isOpen(),
         }}
@@ -90,7 +90,7 @@ export const Dropdown: Component<DropdownProps> = (props) => {
         </svg>
       </button>
       <Show when={isOpen()}>
-        <div class="absolute bottom-[calc(100%+4px)] left-0 right-0 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md shadow-[0_4px_16px_var(--color-shadow),0_0_0_1px_rgba(255,255,255,0.05)_inset] overflow-hidden z-[1000] min-w-full animate-[dropdownSlideDown_0.15s_ease-out]">
+        <div class="absolute bottom-[calc(100%+4px)] left-0 right-0 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md overflow-hidden z-[1000] min-w-full animate-[dropdownSlideDown_0.15s_ease-out]">
           {props.options.map((option) => (
             <button
               type="button"

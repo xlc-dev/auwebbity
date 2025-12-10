@@ -1,12 +1,9 @@
 import { createSignal, Show, onMount, createEffect } from "solid-js";
 import { WaveformView } from "./components/WaveformView";
-import { PlaybackControls } from "./components/PlaybackControls";
 import { SelectionToolbar } from "./components/SelectionToolbar";
-import { ZoomControls } from "./components/ZoomControls";
-import { Button } from "./components/Button";
+import { Toolbar } from "./components/Toolbar";
 import { ToastContainer } from "./components/Toast";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
-import { Dropdown } from "./components/Dropdown";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { Spinner } from "./components/Spinner";
 import { useAudioStore, initializeStore } from "./stores/audioStore";
@@ -176,161 +173,45 @@ export default function App() {
         style={{ display: "none" }}
       />
       <Show when={isInitialized()}>
-        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 pb-[100px] border-t border-[var(--color-border)]">
+        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 pb-[80px] sm:pb-[90px] md:pb-[100px] border-t border-[var(--color-border)]">
           <WaveformView onWaveformReady={setWaveformRef} />
-          <SelectionToolbar
-            onCut={handleCut}
-            onCopy={handleCopy}
-            onPaste={handlePaste}
-            onDelete={handleDelete}
-          />
         </div>
       </Show>
-
-      <div class="fixed bottom-0 left-0 right-0 z-[100] p-4 pointer-events-none">
-        <div class="flex items-center justify-center gap-8 max-w-[1200px] mx-auto py-3.5 px-7 bg-[var(--color-bg-elevated)] border-x border-b border-[var(--color-border)] rounded-b-xl shadow-[0_-4px_24px_var(--color-shadow),0_0_0_1px_rgba(255,255,255,0.05)_inset] pointer-events-auto backdrop-blur-[10px]">
-          <div class="flex items-center gap-2">
-            <Button
-              icon={
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M3 7v6h6" />
-                  <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
-                </svg>
-              }
-              label="Undo"
-              onClick={handleUndo}
-              disabled={!canUndo()}
-              variant="secondary"
-            />
-            <Button
-              icon={
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M21 7v6h-6" />
-                  <path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13" />
-                </svg>
-              }
-              label="Redo"
-              onClick={handleRedo}
-              disabled={!canRedo()}
-              variant="secondary"
-            />
-            <Button
-              icon={
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
-                </svg>
-              }
-              label="Import Audio"
-              onClick={handleImportClick}
-              variant="secondary"
-            />
-            <Show when={recorder.isRecording()}>
-              <div class="inline-flex items-center gap-2 py-2 px-3.5 bg-[var(--color-recording)] text-white rounded-md text-[0.8125rem] font-semibold mr-2 shadow-[0_2px_8px_rgba(248,81,73,0.3)]">
-                <span class="w-2 h-2 bg-white rounded-full animate-[pulse_1.5s_ease-in-out_infinite]"></span>
-                <span>Recording</span>
-              </div>
-            </Show>
-            <Button
-              icon={
-                recorder.isRecording() ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
-                  </svg>
-                )
-              }
-              label={recorder.isRecording() ? "Stop Recording" : "Start Recording"}
-              onClick={async () => {
-                if (recorder.isRecording()) {
-                  recorder.stopRecording();
-                } else {
-                  try {
-                    await recorder.startRecording();
-                  } catch (err) {
-                    addToast(err instanceof Error ? err.message : "Failed to start recording");
-                  }
-                  if (recorder.error()) {
-                    addToast(recorder.error()!);
-                    recorder.clearError();
-                  }
-                }
-              }}
-              classList={{
-                "bg-[var(--color-recording)] text-white border-[var(--color-recording)] shadow-[0_2px_8px_rgba(248,81,73,0.4)] animate-[recordingPulse_2s_ease-in-out_infinite]":
-                  recorder.isRecording(),
-              }}
-              variant={recorder.isRecording() ? undefined : "secondary"}
-            />
-          </div>
-          <div class="flex items-center justify-center flex-1">
-            <PlaybackControls waveform={waveformRef() ?? undefined} />
-          </div>
-          <div class="flex items-center gap-1.5">
-            <ZoomControls />
-            <div class="flex items-center gap-1.5">
-              <Dropdown
-                options={[
-                  { value: "wav", label: "WAV" },
-                  { value: "mp3", label: "MP3" },
-                  { value: "ogg", label: "OGG" },
-                ]}
-                value={exportFormat()}
-                onChange={(value) => setExportFormat(value as "wav" | "mp3" | "ogg")}
-                disabled={isExporting() || !getCurrentTrack()}
-              />
-              <Button
-                icon={
-                  isExporting() ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                    </svg>
-                  ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-                    </svg>
-                  )
-                }
-                label={isExporting() ? "Exporting..." : "Export Audio"}
-                onClick={handleExport}
-                disabled={!getCurrentTrack() || isExporting()}
-                variant="secondary"
-              />
-            </div>
-            <Button
-              icon={
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-                </svg>
-              }
-              label="Delete All"
-              onClick={handleReset}
-              variant="danger"
-              disabled={store.tracks.length === 0}
-            />
-          </div>
-        </div>
-      </div>
+      <SelectionToolbar
+        onCut={handleCut}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onDelete={handleDelete}
+      />
+      <Toolbar
+        waveform={waveformRef() ?? undefined}
+        onImportClick={handleImportClick}
+        onExport={handleExport}
+        onReset={handleReset}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        onRecordClick={async () => {
+          if (recorder.isRecording()) {
+            recorder.stopRecording();
+          } else {
+            try {
+              await recorder.startRecording();
+            } catch (err) {
+              addToast(err instanceof Error ? err.message : "Failed to start recording");
+            }
+            if (recorder.error()) {
+              addToast(recorder.error()!);
+              recorder.clearError();
+            }
+          }
+        }}
+        canUndo={canUndo()}
+        canRedo={canRedo()}
+        exportFormat={exportFormat()}
+        setExportFormat={setExportFormat}
+        isExporting={isExporting()}
+        hasSelection={store.selection !== null}
+      />
       <ToastContainer toasts={toasts()} onDismiss={removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />
       <Show when={isLoading()}>

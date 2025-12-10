@@ -31,7 +31,7 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
         onClick={props.onClose}
       >
         <div
-          class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-xl max-w-[600px] w-[90%] max-h-[80vh] overflow-y-auto shadow-[0_8px_32px_var(--color-shadow)]"
+          class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-xl max-w-[600px] w-[90%] max-h-[80vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           <div class="flex items-center justify-between py-6 px-6 border-b border-[var(--color-border)]">

@@ -85,8 +85,8 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   };
 
   return (
-    <div class="flex items-center gap-4 justify-center flex-1">
-      <div class="flex gap-1.5">
+    <div class="flex items-center gap-2 sm:gap-3 md:gap-4 justify-center flex-1 min-w-0">
+      <div class="flex gap-1 sm:gap-1.5">
         <Button
           icon={
             store.isPlaying ? (
@@ -116,19 +116,19 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
           variant="secondary"
         />
       </div>
-      <div class="flex items-center gap-1 text-[0.8125rem] font-medium text-[var(--color-text-secondary)] tabular-nums min-w-[80px] justify-center">
+      <div class="flex items-center gap-1 text-xs sm:text-[0.8125rem] font-medium text-[var(--color-text-secondary)] tabular-nums min-w-[60px] sm:min-w-[80px] justify-center">
         <span>{formatTime(store.currentTime)}</span>
         <span class="mx-1 text-[var(--color-text-secondary)]">/</span>
         <span>{formatTime(duration())}</span>
       </div>
       <div
         ref={seekbarRef}
-        class="relative w-[300px] h-1.5 bg-[var(--color-border)] rounded-sm cursor-pointer overflow-hidden transition-[height] duration-200 hover:h-2"
+        class="relative w-[150px] sm:w-[200px] md:w-[250px] lg:w-[300px] h-1.5 bg-[var(--color-border)] rounded-sm cursor-pointer overflow-hidden transition-[height] duration-200 hover:h-2"
         onClick={handleSeek}
         onMouseDown={handleMouseDown}
       >
         <div
-          class="absolute top-0 left-0 h-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] rounded transition-[width] duration-[100ms] linear shadow-[0_0_12px_rgba(74,158,255,0.6)]"
+          class="absolute top-0 left-0 h-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary-hover)] rounded transition-[width] duration-[100ms] linear"
           style={{ width: `${progress() * 100}%` }}
         />
       </div>
