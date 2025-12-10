@@ -13,6 +13,9 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
   let originalRegionWidth: number | null = null;
   let lastClampTime = 0;
   let isInitialized = false;
+  let currentLoadAbortController: AbortController | null = null;
+  let isLoading = false;
+  let isAudioLoaded = false;
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
 
@@ -40,6 +43,7 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
 
     wavesurfer.on("ready", () => {
       console.log("Waveform ready");
+      isAudioLoaded = true;
       if (dragSelectionCleanup) {
         dragSelectionCleanup();
         dragSelectionCleanup = null;
@@ -63,27 +67,37 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
 
     wavesurfer.on("pause", () => {
       setPlaying(false);
-      const time = wavesurfer?.getCurrentTime() || 0;
-      pausedTime = time;
-      setCurrentTime(time);
+      try {
+        const time = wavesurfer?.getCurrentTime() || 0;
+        pausedTime = time;
+        setCurrentTime(time);
+      } catch {
+        setCurrentTime(0);
+      }
     });
 
     wavesurfer.on("finish", () => {
       setPlaying(false);
-      const dur = wavesurfer?.getDuration() || 0;
-      if (dur > 0) {
-        setCurrentTime(
-          Math.max(dur, store.tracks.find((t) => t.id === store.currentTrackId)?.duration || dur)
-        );
-      }
+      try {
+        const dur = wavesurfer?.getDuration() || 0;
+        if (dur > 0) {
+          setCurrentTime(
+            Math.max(dur, store.tracks.find((t) => t.id === store.currentTrackId)?.duration || dur)
+          );
+        }
+      } catch {}
     });
 
     wavesurfer.on("timeupdate", (time) => {
       if (isSeeking || !store.isPlaying) return;
-      const dur = wavesurfer?.getDuration() || 0;
-      if (dur > 0 && time >= dur - 0.01) {
-        setCurrentTime(dur);
-      } else {
+      try {
+        const dur = wavesurfer?.getDuration() || 0;
+        if (dur > 0 && time >= dur - 0.01) {
+          setCurrentTime(dur);
+        } else {
+          setCurrentTime(time);
+        }
+      } catch {
         setCurrentTime(time);
       }
     });
@@ -224,78 +238,190 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
   });
 
   const loadAudio = async (url: string) => {
-    if (!wavesurfer) return;
-    const wasPlaying = store.isPlaying;
-    const currentTime = wavesurfer.getCurrentTime() || store.currentTime;
-    await wavesurfer.load(url);
-    if (wasPlaying) {
-      const duration = wavesurfer.getDuration();
-      if (duration > 0) {
-        const seekPosition = Math.max(0, Math.min(1, currentTime / duration));
-        wavesurfer.seekTo(seekPosition);
-        wavesurfer.play();
+    if (!wavesurfer || isLoading) return;
+
+    isLoading = true;
+
+    if (currentLoadAbortController) {
+      currentLoadAbortController.abort();
+      currentLoadAbortController = null;
+    }
+
+    const abortController = new AbortController();
+    currentLoadAbortController = abortController;
+
+    try {
+      const wasPlaying = store.isPlaying;
+      let currentTime = store.currentTime;
+      try {
+        currentTime = wavesurfer.getCurrentTime() || store.currentTime;
+      } catch {
+        currentTime = store.currentTime;
       }
-    } else if (currentTime > 0) {
-      const duration = wavesurfer.getDuration();
-      if (duration > 0) {
-        const seekPosition = Math.max(0, Math.min(1, currentTime / duration));
-        wavesurfer.seekTo(seekPosition);
+
+      isAudioLoaded = false;
+      try {
+        await wavesurfer.load(url);
+      } catch (loadErr) {
+        isAudioLoaded = false;
+        if (
+          loadErr instanceof Error &&
+          (loadErr.name === "AbortError" ||
+            loadErr.message.includes("aborted") ||
+            loadErr.message.includes("signal is aborted"))
+        ) {
+          isLoading = false;
+          if (abortController === currentLoadAbortController) {
+            currentLoadAbortController = null;
+          }
+          return;
+        }
+        if (loadErr instanceof DOMException && loadErr.name === "AbortError") {
+          isLoading = false;
+          if (abortController === currentLoadAbortController) {
+            currentLoadAbortController = null;
+          }
+          return;
+        }
+        throw loadErr;
       }
+
+      if (abortController.signal.aborted) {
+        isAudioLoaded = false;
+        isLoading = false;
+        if (abortController === currentLoadAbortController) {
+          currentLoadAbortController = null;
+        }
+        return;
+      }
+
+      if (wasPlaying) {
+        try {
+          const duration = wavesurfer.getDuration();
+          if (duration > 0) {
+            const seekPosition = Math.max(0, Math.min(1, currentTime / duration));
+            wavesurfer.seekTo(seekPosition);
+            wavesurfer.play();
+          }
+        } catch {}
+      } else if (currentTime > 0) {
+        try {
+          const duration = wavesurfer.getDuration();
+          if (duration > 0) {
+            const seekPosition = Math.max(0, Math.min(1, currentTime / duration));
+            wavesurfer.seekTo(seekPosition);
+          }
+        } catch {}
+      }
+
+      if (abortController === currentLoadAbortController) {
+        currentLoadAbortController = null;
+      }
+      isLoading = false;
+    } catch (err) {
+      isLoading = false;
+      if (abortController === currentLoadAbortController) {
+        currentLoadAbortController = null;
+      }
+      if (
+        err instanceof Error &&
+        (err.name === "AbortError" ||
+          err.message.includes("aborted") ||
+          err.message.includes("signal is aborted"))
+      ) {
+        return;
+      }
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+      console.error("Failed to load audio:", err);
     }
   };
 
   const play = () => {
     if (!wavesurfer) return;
-    const duration = wavesurfer.getDuration();
-    if (!duration || duration <= 0) return;
+    try {
+      const duration = wavesurfer.getDuration();
+      if (!duration || duration <= 0) return;
 
-    const resumeTime = pausedTime !== null ? pausedTime : store.currentTime;
-    pausedTime = null;
+      const resumeTime = pausedTime !== null ? pausedTime : store.currentTime;
+      pausedTime = null;
 
-    const clampedTime = Math.max(0, Math.min(duration, resumeTime));
-    const seekPosition = clampedTime / duration;
+      const clampedTime = Math.max(0, Math.min(duration, resumeTime));
+      const seekPosition = clampedTime / duration;
 
-    isSeeking = true;
-    wavesurfer.seekTo(seekPosition);
-    setCurrentTime(clampedTime);
+      isSeeking = true;
+      wavesurfer.seekTo(seekPosition);
+      setCurrentTime(clampedTime);
 
-    setTimeout(() => {
-      isSeeking = false;
-    }, 100);
+      setTimeout(() => {
+        isSeeking = false;
+      }, 100);
 
-    wavesurfer.play();
+      wavesurfer.play();
+    } catch {}
   };
 
   const pause = () => {
-    wavesurfer?.pause();
+    if (!wavesurfer) return;
+    try {
+      wavesurfer.pause();
+    } catch {}
   };
 
   const stop = () => {
-    wavesurfer?.stop();
-    setCurrentTime(0);
+    if (!wavesurfer) return;
+    try {
+      wavesurfer.stop();
+      setCurrentTime(0);
+    } catch {
+      setCurrentTime(0);
+    }
   };
 
   const seekTo = (normalizedPosition: number) => {
     if (!wavesurfer) return;
-    const duration = wavesurfer.getDuration();
-    if (!duration || duration <= 0) return;
+    try {
+      const duration = wavesurfer.getDuration();
+      if (!duration || duration <= 0) return;
 
-    const clampedPosition = Math.max(0, Math.min(1, normalizedPosition));
-    const seekTime = clampedPosition * duration;
+      const clampedPosition = Math.max(0, Math.min(1, normalizedPosition));
+      const seekTime = clampedPosition * duration;
 
-    pausedTime = null;
-    isSeeking = true;
-    wavesurfer.seekTo(clampedPosition);
-    setCurrentTime(seekTime);
+      pausedTime = null;
+      isSeeking = true;
+      wavesurfer.seekTo(clampedPosition);
+      setCurrentTime(seekTime);
 
-    setTimeout(() => {
-      isSeeking = false;
-    }, 100);
+      setTimeout(() => {
+        isSeeking = false;
+      }, 100);
+    } catch {}
   };
 
   const setZoom = (zoom: number) => {
-    if (!wavesurfer) return;
-    wavesurfer.zoom(zoom);
+    if (!wavesurfer || !isAudioLoaded) return;
+    try {
+      const duration = wavesurfer.getDuration();
+      if (!duration || duration <= 0) {
+        isAudioLoaded = false;
+        return;
+      }
+      wavesurfer.zoom(zoom);
+    } catch (err) {
+      isAudioLoaded = false;
+      if (
+        err instanceof Error &&
+        (err.message.includes("No audio loaded") ||
+          err.message.includes("aborted") ||
+          err.name === "AbortError")
+      ) {
+        return;
+      }
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+    }
   };
 
   const clearSelection = () => {
@@ -306,9 +432,24 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
 
   const clearAudio = () => {
     if (!wavesurfer) return;
-    wavesurfer.stop();
-    wavesurfer.seekTo(0);
-    wavesurfer.empty();
+
+    isLoading = false;
+    isAudioLoaded = false;
+
+    if (currentLoadAbortController) {
+      currentLoadAbortController.abort();
+      currentLoadAbortController = null;
+    }
+
+    try {
+      wavesurfer.stop();
+    } catch {}
+    try {
+      wavesurfer.seekTo(0);
+    } catch {}
+    try {
+      wavesurfer.empty();
+    } catch {}
     if (regionsPlugin) {
       regionsPlugin.clearRegions();
     }
