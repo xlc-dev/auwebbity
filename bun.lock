@@ -5,16 +5,16 @@
     "": {
       "name": "auwebbity",
       "dependencies": {
-        "@ffmpeg/core": "^0.12.6",
-        "@ffmpeg/ffmpeg": "^0.12.10",
+        "@ffmpeg/core": "^0.12.10",
+        "@ffmpeg/ffmpeg": "^0.12.15",
         "solid-js": "^1.9.10",
-        "wavesurfer.js": "^7.8.5",
+        "wavesurfer.js": "^7.12.1",
       },
       "devDependencies": {
         "@types/bun": "latest",
         "prettier": "^3.7.4",
         "typescript": "^5.9.3",
-        "vite": "^7.2.6",
+        "vite": "^7.2.7",
         "vite-plugin-solid": "^2.11.10",
       },
     },
