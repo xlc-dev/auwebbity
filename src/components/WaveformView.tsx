@@ -9,7 +9,6 @@ interface WaveformViewProps {
 
 export const WaveformView: Component<WaveformViewProps> = (props) => {
   let containerRef: HTMLDivElement | undefined;
-  let rulerWrapperRef: HTMLDivElement | undefined;
   const { store } = useAudioStore();
   const waveform = useWaveform(() => containerRef);
 
@@ -36,39 +35,16 @@ export const WaveformView: Component<WaveformViewProps> = (props) => {
     waveform.setZoom(store.zoom);
   });
 
-  createEffect(() => {
-    if (containerRef && rulerWrapperRef) {
-      const syncScroll = () => {
-        if (rulerWrapperRef && containerRef) {
-          rulerWrapperRef.scrollLeft = containerRef.scrollLeft;
-        }
-      };
-
-      containerRef.addEventListener("scroll", syncScroll);
-      return () => {
-        containerRef?.removeEventListener("scroll", syncScroll);
-      };
-    }
-  });
-
   const hasTracks = () => store.tracks.length > 0;
 
   return (
     <div class="waveform-container">
       <Show when={hasTracks()}>
         <div class="waveform-track-background">
-          <div class="waveform-ruler-wrapper" ref={rulerWrapperRef}>
-            <div class="waveform-ruler-container">
-              <TimeRuler containerRef={() => containerRef} />
-            </div>
+          <div class="waveform-scroll-wrapper">
+            <TimeRuler containerRef={() => containerRef} />
+            <div ref={containerRef} class="waveform-view" />
           </div>
-          <div
-            ref={containerRef}
-            class="waveform-view"
-            style={{
-              "pointer-events": "auto",
-            }}
-          />
         </div>
       </Show>
       {!hasTracks() && (

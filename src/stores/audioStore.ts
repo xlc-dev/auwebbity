@@ -27,7 +27,7 @@ export interface AudioState {
   redoStackLength: number;
 }
 
-interface HistoryState {
+export interface HistoryState {
   trackId: string;
   audioBuffer: AudioBuffer;
   audioUrl: string;
@@ -67,12 +67,12 @@ export const initializeStore = async () => {
   isInitialized = true;
 
   window.addEventListener("beforeunload", () => {
-    saveState(audioStore).catch(console.error);
+    saveState(audioStore, undoStack, redoStack).catch(console.error);
   });
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      saveState(audioStore).catch(console.error);
+      saveState(audioStore, undoStack, redoStack).catch(console.error);
     }
   });
 
@@ -92,10 +92,22 @@ export const initializeStore = async () => {
       })
     );
 
+    // Restore undo/redo stacks
+    if (savedState.undoStack) {
+      undoStack.length = 0;
+      undoStack.push(...savedState.undoStack);
+    }
+    if (savedState.redoStack) {
+      redoStack.length = 0;
+      redoStack.push(...savedState.redoStack);
+    }
+
     setAudioStore({
       ...savedState,
       tracks: tracksWithUrls,
       isPlaying: false,
+      undoStackLength: undoStack.length,
+      redoStackLength: redoStack.length,
     });
   }
 };

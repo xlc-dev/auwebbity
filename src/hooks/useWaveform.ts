@@ -1,4 +1,4 @@
-import { onCleanup, onMount } from "solid-js";
+import { onCleanup, createEffect } from "solid-js";
 import WaveSurfer from "wavesurfer.js";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js";
 import { useAudioStore } from "../stores/audioStore";
@@ -12,12 +12,15 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
   let isDragging = false;
   let originalRegionWidth: number | null = null;
   let lastClampTime = 0;
+  let isInitialized = false;
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
 
-  onMount(() => {
+  createEffect(() => {
     const container = containerRef();
     if (!container) return;
+    if (isInitialized) return;
+    isInitialized = true;
 
     wavesurfer = WaveSurfer.create({
       container,
@@ -140,6 +143,10 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
     regionsPlugin.on("region-clicked", (region) => {
       if (!region) return;
       originalRegionWidth = region.end - region.start;
+      setSelection({
+        start: region.start,
+        end: region.end,
+      });
     });
 
     regionsPlugin.on("region-update", (region) => {
@@ -200,51 +207,40 @@ export const useWaveform = (containerRef: () => HTMLDivElement | undefined) => {
       });
     });
 
-    regionsPlugin.on("region-updated", (region) => {
-      if (!region) return;
-      const duration = wavesurfer?.getDuration() || 0;
-      if (duration > 0 && originalRegionWidth !== null) {
-        const regionWidth = originalRegionWidth;
-        let clampedStart = Math.max(0, Math.min(region.start, duration - regionWidth));
-        let clampedEnd = clampedStart + regionWidth;
-
-        if (clampedEnd > duration) {
-          clampedEnd = duration;
-          clampedStart = Math.max(0, duration - regionWidth);
-        }
-
-        if (
-          Math.abs(region.start - clampedStart) > 0.001 ||
-          Math.abs(region.end - clampedEnd) > 0.001
-        ) {
-          region.setOptions({ start: clampedStart, end: clampedEnd });
-          setSelection({
-            start: clampedStart,
-            end: clampedEnd,
-          });
-        }
-      }
-
-      originalRegionWidth = null;
-      lastClampTime = 0;
-    });
-
-    regionsPlugin.on("region-clicked", (region) => {
-      setSelection({
-        start: region.start,
-        end: region.end,
-      });
-    });
-
     regionsPlugin.on("region-removed", () => {
       isDragging = false;
       setSelection(null);
     });
+
+    return () => {
+      if (wavesurfer) {
+        wavesurfer.destroy();
+        wavesurfer = null;
+        regionsPlugin = null;
+        isInitialized = false;
+      }
+    };
   });
 
   const loadAudio = async (url: string) => {
     if (!wavesurfer) return;
+    const wasPlaying = store.isPlaying;
+    const currentTime = wavesurfer.getCurrentTime() || store.currentTime;
     await wavesurfer.load(url);
+    if (wasPlaying) {
+      const duration = wavesurfer.getDuration();
+      if (duration > 0) {
+        const seekPosition = Math.max(0, Math.min(1, currentTime / duration));
+        wavesurfer.seekTo(seekPosition);
+        wavesurfer.play();
+      }
+    } else if (currentTime > 0) {
+      const duration = wavesurfer.getDuration();
+      if (duration > 0) {
+        const seekPosition = Math.max(0, Math.min(1, currentTime / duration));
+        wavesurfer.seekTo(seekPosition);
+      }
+    }
   };
 
   const play = () => {

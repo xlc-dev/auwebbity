@@ -1,8 +1,16 @@
-import { AudioTrack, AudioState } from "../stores/audioStore";
+import { AudioTrack, AudioState, HistoryState } from "../stores/audioStore";
+import { audioOperations } from "./audioOperations";
 
 const STORAGE_KEY = "auwebbity-state";
 const DB_NAME = "auwebbity-audio";
 const DB_VERSION = 1;
+
+interface PersistedHistoryState {
+  trackId: string;
+  audioUrl: string;
+  duration: number;
+  bufferId: string;
+}
 
 interface PersistedState {
   tracks: Omit<AudioTrack, "audioBuffer">[];
@@ -10,6 +18,8 @@ interface PersistedState {
   selection: { start: number; end: number } | null;
   zoom: number;
   currentTime: number;
+  undoStack?: PersistedHistoryState[];
+  redoStack?: PersistedHistoryState[];
 }
 
 async function openDB(): Promise<IDBDatabase> {
@@ -87,7 +97,11 @@ export async function loadAudioBuffer(id: string): Promise<AudioBuffer | null> {
   });
 }
 
-export async function saveState(state: AudioState): Promise<void> {
+export async function saveState(
+  state: AudioState,
+  undoStack: HistoryState[] = [],
+  redoStack: HistoryState[] = []
+): Promise<void> {
   try {
     const persistedState: PersistedState = {
       tracks: state.tracks.map((track) => ({
@@ -100,6 +114,30 @@ export async function saveState(state: AudioState): Promise<void> {
       selection: state.selection,
       zoom: state.zoom,
       currentTime: state.currentTime,
+      undoStack: await Promise.all(
+        undoStack.map(async (historyState, index) => {
+          const bufferId = `undo-${historyState.trackId}-${index}`;
+          await saveAudioBuffer(bufferId, historyState.audioBuffer);
+          return {
+            trackId: historyState.trackId,
+            audioUrl: historyState.audioUrl,
+            duration: historyState.duration,
+            bufferId,
+          };
+        })
+      ),
+      redoStack: await Promise.all(
+        redoStack.map(async (historyState, index) => {
+          const bufferId = `redo-${historyState.trackId}-${index}`;
+          await saveAudioBuffer(bufferId, historyState.audioBuffer);
+          return {
+            trackId: historyState.trackId,
+            audioUrl: historyState.audioUrl,
+            duration: historyState.duration,
+            bufferId,
+          };
+        })
+      ),
     };
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(persistedState));
@@ -144,7 +182,13 @@ export async function saveState(state: AudioState): Promise<void> {
   }
 }
 
-export async function loadState(): Promise<Partial<AudioState> | null> {
+export async function loadState(): Promise<
+  | (Partial<AudioState> & {
+      undoStack?: HistoryState[];
+      redoStack?: HistoryState[];
+    })
+  | null
+> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return null;
@@ -166,6 +210,35 @@ export async function loadState(): Promise<Partial<AudioState> | null> {
       clipboard = await loadAudioBuffer("clipboard");
     } catch {}
 
+    const restoreHistoryStack = async (
+      persistedStack: PersistedHistoryState[]
+    ): Promise<HistoryState[]> => {
+      return Promise.all(
+        persistedStack.map(async (persisted) => {
+          const audioBuffer = await loadAudioBuffer(persisted.bufferId);
+          if (!audioBuffer) {
+            throw new Error(`Failed to load history buffer ${persisted.bufferId}`);
+          }
+          const blob = await audioOperations.audioBufferToBlob(audioBuffer);
+          const audioUrl = URL.createObjectURL(blob);
+          return {
+            trackId: persisted.trackId,
+            audioBuffer,
+            audioUrl,
+            duration: persisted.duration,
+          };
+        })
+      );
+    };
+
+    const undoStack: HistoryState[] = persistedState.undoStack
+      ? await restoreHistoryStack(persistedState.undoStack)
+      : [];
+
+    const redoStack: HistoryState[] = persistedState.redoStack
+      ? await restoreHistoryStack(persistedState.redoStack)
+      : [];
+
     return {
       tracks,
       currentTrackId: persistedState.currentTrackId,
@@ -174,6 +247,8 @@ export async function loadState(): Promise<Partial<AudioState> | null> {
       currentTime: persistedState.currentTime,
       clipboard,
       isPlaying: false,
+      undoStack,
+      redoStack,
     };
   } catch (error) {
     console.error("Failed to load state:", error);
