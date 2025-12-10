@@ -243,6 +243,50 @@ video {
 
 :root {
   color-scheme: light dark;
+
+  --color-primary: #4a9eff;
+  --color-primary-hover: #6bb0ff;
+  --color-dark: #0d1117;
+  --color-bg: #161b22;
+  --color-bg-secondary: #0d1117;
+  --color-bg-elevated: #1c2128;
+  --color-border: #30363d;
+  --color-border-hover: #484f58;
+  --color-text: #c9d1d9;
+  --color-text-secondary: #8b949e;
+  --color-hover: #21262d;
+  --color-active: #30363d;
+  --color-recording: #f85149;
+  --color-shadow: rgba(0, 0, 0, 0.3);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) var(--color-bg);
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--color-bg);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+  border: 1px solid var(--color-bg);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-hover);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--color-bg);
 }
 
 html {
@@ -251,8 +295,8 @@ html {
 
 body {
   min-height: 100vh;
-  background-color: #0d1117;
-  color: #c9d1d9;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text);
   font-size: 1rem;
 }
 
@@ -296,7 +340,6 @@ p {
   font-size: 1rem;
   line-height: 1.5;
 }
-
 
 :focus-visible {
   outline: 2px solid #456990;
