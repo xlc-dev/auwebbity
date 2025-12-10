@@ -61,31 +61,36 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
   const markers = createMemo(() => {
     const dur = duration();
-    const w = width();
+    const container = props.containerRef();
+    const w = width() || container?.scrollWidth || container?.offsetWidth || 0;
 
-    if (dur <= 0 || w <= 0) return [];
+    if (dur <= 0) return [];
 
     const result: Array<{ time: number; position: number }> = [];
-    const pixelsPerSecond = w / dur;
-    const interval = getInterval(dur, w);
+    const effectiveWidth = w > 0 ? w : 1000;
+    const pixelsPerSecond = effectiveWidth / dur;
+    const interval = getInterval(dur, effectiveWidth);
 
     for (let time = 0; time <= dur; time += interval) {
       const position = time * pixelsPerSecond;
-      if (position <= w) {
+      if (position <= effectiveWidth) {
         result.push({ time, position });
       }
     }
 
     if (result.length === 0 && dur > 0) {
       result.push({ time: 0, position: 0 });
-      result.push({ time: dur, position: w });
+      result.push({ time: dur, position: effectiveWidth });
     }
 
     return result;
   });
 
+  const container = props.containerRef();
+  const effectiveWidth = width() || container?.scrollWidth || container?.offsetWidth || 0;
+
   return (
-    <div class="time-ruler" style={{ width: `${width() || "100%"}` }}>
+    <div class="time-ruler" style={{ width: effectiveWidth > 0 ? `${effectiveWidth}px` : "100%" }}>
       {markers().map((marker) => (
         <div class="time-ruler-marker" style={{ left: `${marker.position}px` }}>
           <div class="time-ruler-line" />
