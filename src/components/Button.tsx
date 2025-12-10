@@ -1,6 +1,6 @@
 import { Component, JSX, onMount, onCleanup } from "solid-js";
 
-interface FloatingButtonProps {
+interface ButtonProps {
   icon: JSX.Element;
   label: string;
   onClick: () => void;
@@ -9,7 +9,7 @@ interface FloatingButtonProps {
   classList?: Record<string, boolean>;
 }
 
-export const FloatingButton: Component<FloatingButtonProps> = (props) => {
+export const Button: Component<ButtonProps> = (props) => {
   let buttonRef: HTMLButtonElement | undefined;
   let tooltipRef: HTMLSpanElement | undefined;
 

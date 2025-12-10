@@ -1,6 +1,6 @@
 import { Component, onCleanup, onMount } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
-import { FloatingButton } from "./FloatingButton";
+import { Button } from "./Button";
 
 interface PlaybackControlsProps {
   waveform?: ReturnType<typeof import("../hooks/useWaveform").useWaveform>;
@@ -87,7 +87,7 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
   return (
     <div class="flex items-center gap-4 justify-center flex-1">
       <div class="flex gap-1.5">
-        <FloatingButton
+        <Button
           icon={
             store.isPlaying ? (
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -104,7 +104,7 @@ export const PlaybackControls: Component<PlaybackControlsProps> = (props) => {
           disabled={!currentTrack()}
           variant="secondary"
         />
-        <FloatingButton
+        <Button
           icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <path d="M6 6h12v12H6z" />

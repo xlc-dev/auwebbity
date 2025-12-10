@@ -3,7 +3,7 @@ import { WaveformView } from "./components/WaveformView";
 import { PlaybackControls } from "./components/PlaybackControls";
 import { SelectionToolbar } from "./components/SelectionToolbar";
 import { ZoomControls } from "./components/ZoomControls";
-import { FloatingButton } from "./components/FloatingButton";
+import { Button } from "./components/Button";
 import { ToastContainer } from "./components/Toast";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { Dropdown } from "./components/Dropdown";
@@ -190,7 +190,7 @@ export default function App() {
       <div class="fixed bottom-0 left-0 right-0 z-[100] p-4 pointer-events-none">
         <div class="flex items-center justify-center gap-8 max-w-[1200px] mx-auto py-3.5 px-7 bg-[var(--color-bg-elevated)] border-x border-b border-[var(--color-border)] rounded-b-xl shadow-[0_-4px_24px_var(--color-shadow),0_0_0_1px_rgba(255,255,255,0.05)_inset] pointer-events-auto backdrop-blur-[10px]">
           <div class="flex items-center gap-2">
-            <FloatingButton
+            <Button
               icon={
                 <svg
                   width="16"
@@ -211,7 +211,7 @@ export default function App() {
               disabled={!canUndo()}
               variant="secondary"
             />
-            <FloatingButton
+            <Button
               icon={
                 <svg
                   width="16"
@@ -232,7 +232,7 @@ export default function App() {
               disabled={!canRedo()}
               variant="secondary"
             />
-            <FloatingButton
+            <Button
               icon={
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z" />
@@ -248,7 +248,7 @@ export default function App() {
                 <span>Recording</span>
               </div>
             </Show>
-            <FloatingButton
+            <Button
               icon={
                 recorder.isRecording() ? (
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -299,7 +299,7 @@ export default function App() {
                 onChange={(value) => setExportFormat(value as "wav" | "mp3" | "ogg")}
                 disabled={isExporting() || !getCurrentTrack()}
               />
-              <FloatingButton
+              <Button
                 icon={
                   isExporting() ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -317,7 +317,7 @@ export default function App() {
                 variant="secondary"
               />
             </div>
-            <FloatingButton
+            <Button
               icon={
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />

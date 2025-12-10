@@ -1,13 +1,13 @@
 import { Component } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
-import { FloatingButton } from "./FloatingButton";
+import { Button } from "./Button";
 
 export const ZoomControls: Component = () => {
   const { zoomIn, zoomOut, resetZoom } = useAudioStore();
 
   return (
     <div class="flex gap-1.5">
-      <FloatingButton
+      <Button
         icon={
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
@@ -17,7 +17,7 @@ export const ZoomControls: Component = () => {
         onClick={zoomIn}
         variant="secondary"
       />
-      <FloatingButton
+      <Button
         icon={
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19 13H5v-2h14v2z" />
@@ -27,7 +27,7 @@ export const ZoomControls: Component = () => {
         onClick={zoomOut}
         variant="secondary"
       />
-      <FloatingButton
+      <Button
         icon={
           <svg
             width="16"
