@@ -15,7 +15,6 @@ export const useWaveform = (
   let dragSelectionCleanup: (() => void) | null = null;
   let isSeeking = false;
   let seekingTimeoutId: ReturnType<typeof setTimeout> | null = null;
-  let isDragging = false;
   let originalRegionWidth: number | null = null;
   let lastClampTime = 0;
   let isInitialized = false;
@@ -41,7 +40,7 @@ export const useWaveform = (
       barRadius: 1,
       height: 200,
       normalize: true,
-      interact: isCurrent,
+      interact: false,
       dragToSeek: false,
     });
 
@@ -163,7 +162,6 @@ export const useWaveform = (
 
     createEffect(() => {
       if (!wavesurfer || !isAudioLoaded) return;
-      if (!isCurrent) return;
 
       const duration = wavesurfer.getDuration() || 0;
       if (duration <= 0) return;
@@ -172,7 +170,7 @@ export const useWaveform = (
       const progress = Math.max(0, Math.min(1, currentTime / duration));
 
       const isWaveformPlaying = wavesurfer.isPlaying();
-      if (isWaveformPlaying && store.isPlaying) {
+      if (isWaveformPlaying && store.isPlaying && isCurrent) {
         const waveformTime = wavesurfer.getCurrentTime() || 0;
         const timeDiff = Math.abs(waveformTime - currentTime);
         if (timeDiff < 0.1) {
@@ -185,6 +183,8 @@ export const useWaveform = (
       } catch (err) {
         console.warn("Failed to seek waveform:", err);
       }
+
+      if (!isCurrent) return;
 
       if (store.isPlaying) {
         try {
@@ -229,24 +229,8 @@ export const useWaveform = (
       }, 100);
     });
 
-    wavesurfer.on("click", (relativeX) => {
-      if (!isCurrent) return;
-      if (isDragging) {
-        isDragging = false;
-        return;
-      }
-
-      const duration = wavesurfer?.getDuration() || 0;
-      if (duration > 0) {
-        const newTime = relativeX * duration;
-        setCurrentTime(newTime);
-        wavesurfer?.seekTo(relativeX);
-      }
-    });
-
     regionsPlugin.on("region-initialized", (region) => {
       if (!region || !isCurrent) return;
-      isDragging = true;
       const existingRegions = regionsPlugin?.getRegions() || [];
       existingRegions.forEach((r) => {
         if (r.id !== region.id) {
@@ -257,7 +241,6 @@ export const useWaveform = (
 
     regionsPlugin.on("region-created", (region) => {
       if (!region || !isCurrent) return;
-      isDragging = false;
       originalRegionWidth = region.end - region.start;
       region.setOptions({
         drag: true,
@@ -338,7 +321,6 @@ export const useWaveform = (
     });
 
     regionsPlugin.on("region-removed", () => {
-      isDragging = false;
       setSelection(null);
     });
 

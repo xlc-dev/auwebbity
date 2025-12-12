@@ -355,11 +355,16 @@ export const initializeStore = async () => {
     }
 
     setAudioStore({
-      ...savedState,
       tracks: tracksWithUrls,
+      currentTrackId: savedState.currentTrackId || null,
+      selection: null,
+      zoom: 100,
       isPlaying: false,
+      currentTime: 0,
+      clipboard: savedState.clipboard || null,
       undoStackLength: undoStack.length,
       redoStackLength: redoStack.length,
+      repeatRegion: null,
     });
   }
 };
@@ -378,22 +383,18 @@ export const useAudioStore = () => {
 
   const setSelection = (selection: Selection | null) => {
     setAudioStore("selection", selection);
-    scheduleSave();
   };
 
   const zoomIn = () => {
     setAudioStore("zoom", (z) => Math.min(1000, z * 1.5));
-    scheduleSave();
   };
 
   const zoomOut = () => {
     setAudioStore("zoom", (z) => Math.max(10, z / 1.5));
-    scheduleSave();
   };
 
   const resetZoom = () => {
     setAudioStore("zoom", 100);
-    scheduleSave();
   };
 
   const setPlaying = (isPlaying: boolean) => {
