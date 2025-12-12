@@ -121,14 +121,19 @@ export const useWaveform = (
         const maxDur =
           store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
         if (maxDur > 0) {
-          const currentMaxTime = Math.max(time, store.currentTime);
-          if (currentMaxTime >= maxDur - 0.01) {
+          const clampedTime = Math.min(time, maxDur);
+          const timeToUse = isWaveformPlaying
+            ? Math.min(Math.max(clampedTime, store.currentTime), maxDur)
+            : Math.min(store.currentTime, maxDur);
+
+          if (timeToUse >= maxDur - 0.01) {
             setCurrentTime(maxDur);
             if (isCurrent) {
               setPlaying(false);
             }
           } else {
-            setCurrentTime(currentMaxTime);
+            const finalTime = isWaveformPlaying ? Math.min(clampedTime, maxDur) : Math.min(timeToUse, maxDur);
+            setCurrentTime(finalTime);
           }
         } else {
           setCurrentTime(time);

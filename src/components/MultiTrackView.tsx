@@ -438,7 +438,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
             class="flex-1 overflow-y-auto overflow-x-auto relative [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]"
           >
             <div class="relative">
-              <Show when={store.tracks.length > 0 && playheadPosition() >= 0}>
+              <Show when={store.tracks.length > 0 && playheadPosition() >= 0 && !(store.currentTime >= maxDuration() - 0.01 && !store.isPlaying)}>
                 <div
                   class="absolute w-[3px] bg-white z-[20] pointer-events-none"
                   style={{
