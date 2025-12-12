@@ -30,7 +30,6 @@ interface TrackRowPropsWithCallback extends TrackRowProps {
 
 const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   let containerRef: HTMLDivElement | undefined;
-  let colorInputRef: HTMLInputElement | undefined;
   let colorPickerRef: HTMLDivElement | undefined;
   const [isEditing, setIsEditing] = createSignal(false);
   const [editName, setEditName] = createSignal(props.track.name);
@@ -337,8 +336,8 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     const maxDur = maxDuration();
     if (maxDur <= 0) return 0;
 
-    const _ = store.currentTime;
-    const __ = store.zoom;
+    store.currentTime;
+    store.zoom;
     const rulerContainer = container.parentElement;
     if (!rulerContainer) return 0;
     const containerWidth = rulerContainer.offsetWidth || rulerContainer.clientWidth || 0;

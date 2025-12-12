@@ -1,4 +1,4 @@
-import { createSignal, Show, onMount, createEffect, untrack } from "solid-js";
+import { createSignal, Show, onMount, createEffect } from "solid-js";
 import { MultiTrackView } from "./components/MultiTrackView";
 import { SelectionToolbar } from "./components/SelectionToolbar";
 import { Toolbar } from "./components/Toolbar";
@@ -18,18 +18,8 @@ import { formatDateForFilename } from "./utils/dateUtils";
 import { getErrorMessage } from "./utils/errorUtils";
 
 export default function App() {
-  const {
-    store,
-    getCurrentTrack,
-    resetStore,
-    undo,
-    redo,
-    canUndo,
-    canRedo,
-    setCurrentTime,
-    setPlaying,
-    setRepeatRegion,
-  } = useAudioStore();
+  const { store, getCurrentTrack, resetStore, undo, redo, canUndo, canRedo, setRepeatRegion } =
+    useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
   const [waveformMap, setWaveformMap] = createSignal<Map<string, ReturnType<typeof useWaveform>>>(

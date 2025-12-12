@@ -66,8 +66,8 @@ export const useWaveform = (
         }
       }
 
-      const duration = wavesurfer.getDuration() || 0;
-      if (duration > 0) {
+      const duration = wavesurfer?.getDuration() || 0;
+      if (duration > 0 && wavesurfer) {
         const currentTime = store.currentTime;
         const progress = Math.max(0, Math.min(1, currentTime / duration));
         try {
