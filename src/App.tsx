@@ -182,6 +182,7 @@ export default function App() {
                 return newMap;
               });
             }}
+            onSeekAll={seekAllTracks}
           />
         </div>
       </Show>

@@ -307,6 +307,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
 
 interface MultiTrackViewProps {
   onWaveformReady?: (waveform: ReturnType<typeof useWaveform>, trackId: string) => void;
+  onSeekAll?: (time: number) => void;
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
@@ -430,7 +431,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
           <div class="flex border-b border-[var(--color-border)] flex-shrink-0 relative">
             <div class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"></div>
             <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
-              <TimeRuler containerRef={mainContainerRef} />
+              <TimeRuler containerRef={mainContainerRef} onSeek={props.onSeekAll} />
             </div>
           </div>
           <div

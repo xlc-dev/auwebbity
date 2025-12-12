@@ -3,10 +3,11 @@ import { useAudioStore } from "../stores/audioStore";
 
 interface TimeRulerProps {
   containerRef: () => HTMLDivElement | undefined;
+  onSeek?: (time: number) => void;
 }
 
 export const TimeRuler: Component<TimeRulerProps> = (props) => {
-  const { store } = useAudioStore();
+  const { store, setCurrentTime } = useAudioStore();
   const [width, setWidth] = createSignal(0);
 
   const duration = () => Math.max(...store.tracks.map((t) => t.duration), 0);
@@ -95,10 +96,32 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     return containerWidth > 0 ? containerWidth : 0;
   });
 
+  const handleClick = (e: MouseEvent) => {
+    const dur = duration();
+    if (dur <= 0) return;
+
+    const container = props.containerRef();
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const containerWidth = container.scrollWidth || width() || 0;
+    if (containerWidth <= 0) return;
+
+    const progress = Math.max(0, Math.min(1, x / containerWidth));
+    const newTime = progress * dur;
+
+    setCurrentTime(newTime);
+    if (props.onSeek) {
+      props.onSeek(newTime);
+    }
+  };
+
   return (
     <div
-      class="relative w-full h-5 sm:h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"
+      class="relative w-full h-5 sm:h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 cursor-pointer"
       style={{ width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%" }}
+      onClick={handleClick}
     >
       {markers().map((marker) => (
         <div
