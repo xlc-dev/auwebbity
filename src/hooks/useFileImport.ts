@@ -23,8 +23,6 @@ export const useFileImport = () => {
         duration: audioBuffer.duration,
         backgroundColor: null,
       });
-    } catch (err) {
-      throw err;
     } finally {
       setIsLoading(false);
     }

@@ -75,8 +75,6 @@ export const useAudioOperations = () => {
       );
 
       await updateTrackAfterOperation(currentTrack.id, newBuffer, waveformRef);
-    } catch (err) {
-      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -118,8 +116,6 @@ export const useAudioOperations = () => {
       );
 
       await updateTrackAfterOperation(trackId, newBuffer, waveformRef);
-    } catch (err) {
-      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -149,8 +145,6 @@ export const useAudioOperations = () => {
       );
 
       await updateTrackAfterOperation(currentTrack.id, newBuffer, waveformRef);
-    } catch (err) {
-      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -199,8 +193,6 @@ export const useAudioOperations = () => {
 
         await updateTrackAfterOperation(targetTrackId, newBuffer, () => waveform);
       }
-    } catch (err) {
-      throw err;
     } finally {
       setIsLoading(false);
     }
@@ -230,32 +222,9 @@ export const useAudioOperations = () => {
     waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null
   ) => {
     if (scope !== "selection" || !store.selection) return;
-
-    setIsLoading(true);
-    try {
-      const targetTrackId = store.currentTrackId;
-      if (!targetTrackId) return;
-
-      const targetTrack = store.tracks.find((t) => t.id === targetTrackId);
-      if (!targetTrack?.audioBuffer) return;
-
-      const waveform = waveformRef(targetTrackId);
-      if (!waveform) return;
-
-      await saveToHistory(targetTrackId);
-
-      const newBuffer = await audioEffects.silence(
-        targetTrack.audioBuffer,
-        store.selection.start,
-        store.selection.end
-      );
-
-      await updateTrackAfterOperation(targetTrackId, newBuffer, () => waveform);
-    } catch (err) {
-      throw err;
-    } finally {
-      setIsLoading(false);
-    }
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.silence(buffer, start!, end!)
+    );
   };
 
   const handleReverse = async (

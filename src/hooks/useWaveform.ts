@@ -471,18 +471,16 @@ export const useWaveform = (
         }
       } else {
         if (duration > 0) {
-          const currentTime = store.currentTime;
-          const progress = Math.max(0, Math.min(1, currentTime / duration));
+          const progress = Math.max(0, Math.min(1, store.currentTime / duration));
           wavesurfer.seekTo(progress);
-        }
-        if (wasPlaying && duration > 0) {
-          wavesurfer.play();
+          if (wasPlaying) {
+            wavesurfer.play();
+          }
         }
       }
 
       if (duration > 0) {
-        const currentTime = store.currentTime;
-        const progress = Math.max(0, Math.min(1, currentTime / duration));
+        const progress = Math.max(0, Math.min(1, store.currentTime / duration));
         requestAnimationFrame(() => {
           try {
             wavesurfer?.seekTo(progress);

@@ -137,11 +137,8 @@ async function saveState(
 ): Promise<void> {
   try {
     const persistedState: PersistedState = {
-      tracks: state.tracks.map((track) => ({
-        id: track.id,
-        name: track.name,
-        audioUrl: track.audioUrl,
-        duration: track.duration,
+      tracks: state.tracks.map(({ audioBuffer, ...track }) => ({
+        ...track,
         backgroundColor: track.backgroundColor || null,
       })),
       currentTrackId: state.currentTrackId,
@@ -218,14 +215,11 @@ async function loadState(): Promise<
     const persistedState: PersistedState = JSON.parse(stored);
 
     const tracks: AudioTrack[] = await Promise.all(
-      persistedState.tracks.map(async (track) => {
-        const audioBuffer = await loadAudioBuffer(track.id);
-        return {
-          ...track,
-          audioBuffer,
-          backgroundColor: track.backgroundColor || null,
-        };
-      })
+      persistedState.tracks.map(async (track) => ({
+        ...track,
+        audioBuffer: await loadAudioBuffer(track.id),
+        backgroundColor: track.backgroundColor || null,
+      }))
     );
 
     let clipboard: AudioBuffer | null = null;
@@ -373,10 +367,7 @@ export const initializeStore = async () => {
 export const useAudioStore = () => {
   const addTrack = (track: Omit<AudioTrack, "id">) => {
     const id = crypto.randomUUID();
-    setAudioStore("tracks", (tracks) => [
-      ...tracks,
-      { ...track, backgroundColor: track.backgroundColor || null, id },
-    ]);
+    setAudioStore("tracks", (tracks) => [...tracks, { ...track, id }]);
     setAudioStore("currentTrackId", id);
     scheduleSave();
     return id;
@@ -570,12 +561,7 @@ export const useAudioStore = () => {
 
     if (audioStore.currentTrackId === trackId) {
       const remainingTracks = audioStore.tracks.filter((t) => t.id !== trackId);
-      const firstRemainingTrack = remainingTracks[0];
-      if (firstRemainingTrack) {
-        setAudioStore("currentTrackId", firstRemainingTrack.id);
-      } else {
-        setAudioStore("currentTrackId", null);
-      }
+      setAudioStore("currentTrackId", remainingTracks[0]?.id ?? null);
     }
 
     setAudioStore("selection", null);

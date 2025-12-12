@@ -1,5 +1,3 @@
-import { formatDateForFilename } from "./dateUtils";
-
 export const audioOperations = {
   async copy(audioBuffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> {
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
@@ -16,8 +14,7 @@ export const audioOperations = {
     for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
       const oldData = audioBuffer.getChannelData(channel);
       const newData = newBuffer.getChannelData(channel);
-      const copyLength = Math.min(length, endSample - startSample);
-      for (let i = 0; i < copyLength; i++) {
+      for (let i = 0; i < length; i++) {
         newData[i] = oldData[startSample + i] ?? 0;
       }
     }
@@ -53,13 +50,11 @@ export const audioOperations = {
       const beforeData = beforeBuffer.getChannelData(channel);
       const afterData = afterBuffer.getChannelData(channel);
 
-      const actualBeforeLength = Math.min(beforeLength, startSample);
-      for (let i = 0; i < actualBeforeLength; i++) {
+      for (let i = 0; i < startSample; i++) {
         beforeData[i] = oldData[i] ?? 0;
       }
 
-      const actualAfterLength = Math.min(afterLength, audioBuffer.length - endSample);
-      for (let i = 0; i < actualAfterLength; i++) {
+      for (let i = 0; i < audioBuffer.length - endSample; i++) {
         afterData[i] = oldData[endSample + i] ?? 0;
       }
     }
@@ -154,21 +149,17 @@ export const audioOperations = {
     format: "wav" | "mp3" | "ogg" = "wav",
     filename?: string
   ): Promise<void> {
-    let blob: Blob;
-    let extension: string;
-
-    if (format === "wav") {
-      blob = await this.audioBufferToBlob(audioBuffer);
-      extension = "wav";
-    } else {
-      blob = await this.audioBufferToMP3OrOGG(audioBuffer, format);
-      extension = format;
-    }
+    const blob =
+      format === "wav"
+        ? await this.audioBufferToBlob(audioBuffer)
+        : await this.audioBufferToMP3OrOGG(audioBuffer, format);
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = filename || `recording_${formatDateForFilename()}.${extension}`;
+    link.download =
+      filename ||
+      `recording_${new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5)}.${format}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

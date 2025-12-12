@@ -301,12 +301,10 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
         </div>
         <div class="text-xs text-[var(--color-text)] space-y-1 opacity-70">
           <div>Duration: {formatTime(props.track.duration)}</div>
-          {props.track.audioBuffer && (
-            <div>Channels: {props.track.audioBuffer.numberOfChannels}</div>
-          )}
-          {props.track.audioBuffer && (
-            <div>Sample Rate: {Math.round(props.track.audioBuffer.sampleRate / 1000)}kHz</div>
-          )}
+          <Show when={props.track.audioBuffer}>
+            <div>Channels: {props.track.audioBuffer!.numberOfChannels}</div>
+            <div>Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz</div>
+          </Show>
         </div>
       </div>
       <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
@@ -541,11 +539,11 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
           </div>
         </div>
       </Show>
-      {store.tracks.length === 0 && (
+      <Show when={store.tracks.length === 0}>
         <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center text-[var(--color-text-secondary)] pointer-events-none text-xs sm:text-sm md:text-[0.9375rem] p-3 sm:p-4 md:p-6 lg:p-8 opacity-70 max-w-[90%]">
           <p>Import an audio file or start recording to begin editing</p>
         </div>
-      )}
+      </Show>
     </div>
   );
 };

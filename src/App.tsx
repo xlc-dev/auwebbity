@@ -103,18 +103,18 @@ export default function App() {
   };
 
   const clearAllSelections = () => {
-    const map = waveformMap();
-    map.forEach((waveform) => {
-      waveform.clearSelection();
-    });
+    waveformMap().forEach((waveform) => waveform.clearSelection());
   };
+
+  const createOperationHandler = (operation: () => Promise<void>, errorMessage: string) => () =>
+    handleOperation(operation, errorMessage);
 
   useKeyboardShortcuts({
     waveform: waveformRef,
-    onCut: () => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut"),
-    onCopy: () => handleOperation(() => audioOps.handleCopy(waveformRef), "Failed to copy"),
-    onPaste: () => handleOperation(() => audioOps.handlePaste(waveformRef), "Failed to paste"),
-    onDelete: () => handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete"),
+    onCut: createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut"),
+    onCopy: createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy"),
+    onPaste: createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste"),
+    onDelete: createOperationHandler(() => audioOps.handleDelete(waveformRef), "Failed to delete"),
     onUndo: () => undo(),
     onRedo: () => redo(),
     onPlayPause: () => {
@@ -233,12 +233,13 @@ export default function App() {
         </div>
       </Show>
       <SelectionToolbar
-        onCut={() => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut")}
-        onCopy={() => handleOperation(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
-        onPaste={() => handleOperation(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
-        onDelete={() =>
-          handleOperation(() => audioOps.handleDelete(waveformRef), "Failed to delete")
-        }
+        onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
+        onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
+        onPaste={createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
+        onDelete={createOperationHandler(
+          () => audioOps.handleDelete(waveformRef),
+          "Failed to delete"
+        )}
       />
       <Toolbar
         waveform={waveformRef() ?? undefined}
@@ -257,18 +258,10 @@ export default function App() {
           } else {
             try {
               await recorder.startRecording();
-              if (recorder.error()) {
-                toast.addToast(recorder.error()!);
-                recorder.clearError();
-              }
             } catch (err) {
-              const recorderError = recorder.error();
-              if (recorderError) {
-                toast.addToast(recorderError);
-                recorder.clearError();
-              } else {
-                toast.addToast(getErrorMessage(err, "Failed to start recording"));
-              }
+              const error = recorder.error() || getErrorMessage(err, "Failed to start recording");
+              toast.addToast(error);
+              recorder.clearError();
             }
           }
         }}
