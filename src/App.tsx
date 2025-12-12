@@ -28,6 +28,7 @@ export default function App() {
     canRedo,
     setCurrentTime,
     setPlaying,
+    setRepeatRegion,
   } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
@@ -96,6 +97,21 @@ export default function App() {
     }
   };
 
+  const handleSetRepeatStart = (time: number) => {
+    setRepeatRegion({ start: time, end: time });
+  };
+
+  const handleSetRepeatEnd = (time: number) => {
+    if (store.repeatRegion) {
+      const start = store.repeatRegion.start;
+      setRepeatRegion({ start, end: Math.max(start, time) });
+    }
+  };
+
+  const handleClearRepeat = () => {
+    setRepeatRegion(null);
+  };
+
   useKeyboardShortcuts({
     waveform: waveformRef,
     onCut: () => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut"),
@@ -111,6 +127,7 @@ export default function App() {
         playAllTracks();
       }
     },
+    onClearRepeat: handleClearRepeat,
   });
 
   onMount(async () => {
@@ -126,6 +143,26 @@ export default function App() {
       if (waveform) {
         setWaveformRef(waveform);
       }
+    }
+  });
+
+  const [lastCurrentTime, setLastCurrentTime] = createSignal(store.currentTime);
+  createEffect(() => {
+    if (store.repeatRegion && store.isPlaying) {
+      const { start, end } = store.repeatRegion;
+      const currentTime = store.currentTime;
+      const prevTime = lastCurrentTime();
+
+      const wasWithinRepeat = prevTime >= start - 0.01 && prevTime <= end + 0.01;
+      const isWithinRepeat = currentTime >= start - 0.01 && currentTime <= end + 0.01;
+
+      if (wasWithinRepeat && isWithinRepeat && currentTime >= end - 0.01 && prevTime < end - 0.01) {
+        seekAllTracks(start);
+      }
+
+      setLastCurrentTime(currentTime);
+    } else {
+      setLastCurrentTime(store.currentTime);
     }
   });
 
@@ -183,6 +220,9 @@ export default function App() {
               });
             }}
             onSeekAll={seekAllTracks}
+            onSetRepeatStart={handleSetRepeatStart}
+            onSetRepeatEnd={handleSetRepeatEnd}
+            onClearRepeat={handleClearRepeat}
           />
         </div>
       </Show>

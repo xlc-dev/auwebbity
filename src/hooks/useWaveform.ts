@@ -126,13 +126,31 @@ export const useWaveform = (
             ? Math.min(Math.max(clampedTime, store.currentTime), maxDur)
             : Math.min(store.currentTime, maxDur);
 
+          if (store.repeatRegion && isWaveformPlaying) {
+            const { start, end } = store.repeatRegion;
+            const isWithinRepeatRegion = timeToUse >= start - 0.01 && timeToUse <= end + 0.01;
+            if (isWithinRepeatRegion && timeToUse >= end - 0.01) {
+              setCurrentTime(start);
+              const duration = wavesurfer?.getDuration() || 0;
+              if (duration > 0) {
+                const seekPosition = start / duration;
+                try {
+                  wavesurfer?.seekTo(seekPosition);
+                } catch {}
+              }
+              return;
+            }
+          }
+
           if (timeToUse >= maxDur - 0.01) {
             setCurrentTime(maxDur);
             if (isCurrent) {
               setPlaying(false);
             }
           } else {
-            const finalTime = isWaveformPlaying ? Math.min(clampedTime, maxDur) : Math.min(timeToUse, maxDur);
+            const finalTime = isWaveformPlaying
+              ? Math.min(clampedTime, maxDur)
+              : Math.min(timeToUse, maxDur);
             setCurrentTime(finalTime);
           }
         } else {

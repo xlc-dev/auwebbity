@@ -308,6 +308,9 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
 interface MultiTrackViewProps {
   onWaveformReady?: (waveform: ReturnType<typeof useWaveform>, trackId: string) => void;
   onSeekAll?: (time: number) => void;
+  onSetRepeatStart?: (time: number) => void;
+  onSetRepeatEnd?: (time: number) => void;
+  onClearRepeat?: () => void;
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
@@ -345,6 +348,25 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     const fullTimelineWidth = maxDur * pixelsPerSecond;
     const position = store.currentTime * pixelsPerSecond;
     return Math.max(0, Math.min(fullTimelineWidth, position));
+  });
+
+  const repeatRegionPosition = createMemo(() => {
+    if (!store.repeatRegion) return null;
+    const container = mainContainerRef();
+    if (!container) return null;
+
+    const maxDur = maxDuration();
+    if (maxDur <= 0) return null;
+
+    const rulerContainer = container.parentElement;
+    if (!rulerContainer) return null;
+    const containerWidth = rulerContainer.offsetWidth || rulerContainer.clientWidth || 0;
+    if (containerWidth <= 0) return null;
+
+    const pixelsPerSecond = (containerWidth / maxDur) * (store.zoom / 100);
+    const startPos = store.repeatRegion.start * pixelsPerSecond;
+    const endPos = store.repeatRegion.end * pixelsPerSecond;
+    return { start: startPos, end: endPos };
   });
 
   const [sidebarWidth, setSidebarWidth] = createSignal(192);
@@ -431,7 +453,13 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
           <div class="flex border-b border-[var(--color-border)] flex-shrink-0 relative">
             <div class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"></div>
             <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
-              <TimeRuler containerRef={mainContainerRef} onSeek={props.onSeekAll} />
+              <TimeRuler
+                containerRef={mainContainerRef}
+                onSeek={props.onSeekAll}
+                onSetRepeatStart={props.onSetRepeatStart}
+                onSetRepeatEnd={props.onSetRepeatEnd}
+                onClearRepeat={props.onClearRepeat}
+              />
             </div>
           </div>
           <div
@@ -439,7 +467,26 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
             class="flex-1 overflow-y-auto overflow-x-auto relative [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]"
           >
             <div class="relative">
-              <Show when={store.tracks.length > 0 && playheadPosition() >= 0 && !(store.currentTime >= maxDuration() - 0.01 && !store.isPlaying)}>
+              <Show when={store.tracks.length > 0 && repeatRegionPosition()}>
+                {(regionPos) => (
+                  <div
+                    class="absolute bg-yellow-500/20 border-y border-yellow-500/50 z-[15] pointer-events-none"
+                    style={{
+                      left: `${sidebarWidth() + regionPos().start}px`,
+                      width: `${regionPos().end - regionPos().start}px`,
+                      top: "0px",
+                      height: `${store.tracks.length * 200}px`,
+                    }}
+                  />
+                )}
+              </Show>
+              <Show
+                when={
+                  store.tracks.length > 0 &&
+                  playheadPosition() >= 0 &&
+                  !(store.currentTime >= maxDuration() - 0.01 && !store.isPlaying)
+                }
+              >
                 <div
                   class="absolute w-[3px] bg-white z-[20] pointer-events-none"
                   style={{

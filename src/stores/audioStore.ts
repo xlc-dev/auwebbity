@@ -26,6 +26,7 @@ export interface AudioState {
   clipboard: AudioBuffer | null;
   undoStackLength: number;
   redoStackLength: number;
+  repeatRegion: { start: number; end: number } | null;
 }
 
 export interface HistoryState {
@@ -296,6 +297,7 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
   clipboard: null,
   undoStackLength: 0,
   redoStackLength: 0,
+  repeatRegion: null,
 });
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -402,6 +404,10 @@ export const useAudioStore = () => {
     setAudioStore("currentTime", time);
   };
 
+  const setRepeatRegion = (region: { start: number; end: number } | null) => {
+    setAudioStore("repeatRegion", region);
+  };
+
   const setClipboard = (buffer: AudioBuffer | null) => {
     setAudioStore("clipboard", buffer);
     scheduleSave();
@@ -438,6 +444,7 @@ export const useAudioStore = () => {
       clipboard: null,
       undoStackLength: 0,
       redoStackLength: 0,
+      repeatRegion: null,
     });
   };
 
@@ -583,6 +590,7 @@ export const useAudioStore = () => {
     resetZoom,
     setPlaying,
     setCurrentTime,
+    setRepeatRegion,
     setClipboard,
     getCurrentTrack,
     resetStore,

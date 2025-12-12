@@ -10,6 +10,7 @@ interface UseKeyboardShortcutsOptions {
   onUndo: () => void;
   onRedo: () => void;
   onPlayPause?: () => void;
+  onClearRepeat?: () => void;
 }
 
 export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
@@ -87,9 +88,19 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
       return;
     }
 
-    if (e.key === "Escape" && store.selection) {
+    if (e.key === "Escape") {
       e.preventDefault();
-      options.waveform()?.clearSelection();
+      if (store.selection) {
+        options.waveform()?.clearSelection();
+      }
+      return;
+    }
+
+    if (e.key === "r" || e.key === "R") {
+      e.preventDefault();
+      if (store.repeatRegion && options.onClearRepeat) {
+        options.onClearRepeat();
+      }
       return;
     }
   };
