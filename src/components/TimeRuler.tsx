@@ -45,14 +45,17 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     const container = props.containerRef();
     if (!container) return;
 
+    const scrollContainer = container.parentElement;
+    if (!scrollContainer) return;
+
     const updateWidth = () => {
-      const w = container.scrollWidth || container.offsetWidth || 0;
+      const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
       setWidth(w);
     };
 
     updateWidth();
     const observer = new ResizeObserver(updateWidth);
-    observer.observe(container);
+    observer.observe(scrollContainer);
 
     const checkWidth = () => {
       requestAnimationFrame(updateWidth);
@@ -70,34 +73,42 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
   const markers = createMemo(() => {
     const dur = duration();
-    const container = props.containerRef();
-    const containerWidth = container?.scrollWidth || width() || 0;
+    if (dur <= 0) return [];
 
-    if (dur <= 0 || containerWidth <= 0) return [];
+    const containerWidth = width();
+    if (containerWidth <= 0) return [];
 
-    const pixelsPerSecond = containerWidth / dur;
+    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
+    const timelineWidth = dur * pixelsPerSecond;
     const interval = getInterval(pixelsPerSecond);
 
     const result: Array<{ time: number; position: number }> = [];
     for (let time = 0; time <= dur; time += interval) {
       const position = time * pixelsPerSecond;
-      if (position <= containerWidth) {
+      if (position <= timelineWidth) {
         result.push({ time, position });
       }
     }
 
     if (result.length === 0 && dur > 0) {
       result.push({ time: 0, position: 0 });
-      result.push({ time: dur, position: containerWidth });
+      result.push({ time: dur, position: timelineWidth });
     }
 
     return result;
   });
 
   const effectiveWidth = createMemo(() => {
-    const container = props.containerRef();
-    const containerWidth = container?.scrollWidth || width() || 0;
-    return containerWidth > 0 ? containerWidth : 0;
+    const dur = duration();
+    if (dur <= 0) return 0;
+
+    const containerWidth = width();
+    if (containerWidth <= 0) return 0;
+
+    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
+    const timelineWidth = dur * pixelsPerSecond;
+
+    return Math.min(Math.ceil(timelineWidth), Math.ceil(containerWidth * (store.zoom / 100)));
   });
 
   const repeatMarkerPositions = createMemo(() => {
@@ -105,11 +116,10 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     const dur = duration();
     if (dur <= 0) return null;
 
-    const container = props.containerRef();
-    const containerWidth = container?.scrollWidth || width() || 0;
+    const containerWidth = width();
     if (containerWidth <= 0) return null;
 
-    const pixelsPerSecond = containerWidth / dur;
+    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
     const startPos = store.repeatRegion.start * pixelsPerSecond;
     const endPos = store.repeatRegion.end * pixelsPerSecond;
     return { start: startPos, end: endPos };
@@ -119,15 +129,17 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     const dur = duration();
     if (dur <= 0) return null;
 
-    const container = props.containerRef();
-    if (!container) return null;
+    const target = e.currentTarget as HTMLElement;
+    if (!target) return null;
 
-    const rect = container.getBoundingClientRect();
+    const rect = target.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const containerWidth = container.scrollWidth || width() || 0;
+    const containerWidth = width();
     if (containerWidth <= 0) return null;
 
-    const progress = Math.max(0, Math.min(1, x / containerWidth));
+    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
+    const timelineWidth = dur * pixelsPerSecond;
+    const progress = Math.max(0, Math.min(1, x / timelineWidth));
     return progress * dur;
   };
 
@@ -203,12 +215,12 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
   return (
     <div
-      class="relative w-full h-5 sm:h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"
+      class="relative w-full h-5 sm:h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden"
       classList={{
         "cursor-pointer": !selectingRepeatStart(),
         "cursor-crosshair": selectingRepeatStart(),
       }}
-      style={{ width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%" }}
+      style={{ width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%", maxWidth: "100%" }}
       onClick={handleClick}
       onDblClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
@@ -223,30 +235,40 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
       <Show when={selectingRepeatStart()}>
         <div class="absolute inset-0 bg-blue-500/10 border-b-2 border-blue-500/50 z-[10] pointer-events-none" />
       </Show>
-      {markers().map((marker) => (
-        <div
-          class="absolute top-0 h-full pointer-events-none"
-          style={{ left: `${marker.position}px` }}
-        >
-          <div class="w-px h-full bg-[var(--color-border)] opacity-30" />
-          <span class="absolute top-0.5 left-0.5 text-[0.5rem] sm:text-[0.625rem] font-medium text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
-            {formatTime(marker.time)}
-          </span>
-        </div>
-      ))}
+      {markers().map((marker) => {
+        const effWidth = effectiveWidth();
+        const constrainedPos =
+          effWidth > 0 ? Math.min(marker.position, effWidth - 1) : marker.position;
+        return (
+          <div
+            class="absolute top-0 h-full pointer-events-none"
+            style={{ left: `${constrainedPos}px` }}
+          >
+            <div class="w-px h-full bg-[var(--color-border)] opacity-30" />
+            <span class="absolute top-0.5 left-0.5 text-[0.5rem] sm:text-[0.625rem] font-medium text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
+              {formatTime(marker.time)}
+            </span>
+          </div>
+        );
+      })}
       <Show when={store.repeatRegion && repeatMarkerPositions()}>
-        {(pos) => (
-          <>
-            <div
-              class="absolute top-0 w-0 h-0 border-r-[6px] border-r-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
-              style={{ left: `${pos().start - 6}px` }}
-            />
-            <div
-              class="absolute top-0 w-0 h-0 border-l-[6px] border-l-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
-              style={{ left: `${pos().end}px` }}
-            />
-          </>
-        )}
+        {(pos) => {
+          const effWidth = effectiveWidth();
+          const startPos = Math.max(0, Math.min(pos().start - 6, effWidth - 1));
+          const endPos = Math.min(pos().end, effWidth - 1);
+          return (
+            <>
+              <div
+                class="absolute top-0 w-0 h-0 border-r-[6px] border-r-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
+                style={{ left: `${startPos}px` }}
+              />
+              <div
+                class="absolute top-0 w-0 h-0 border-l-[6px] border-l-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
+                style={{ left: `${endPos}px` }}
+              />
+            </>
+          );
+        }}
       </Show>
     </div>
   );

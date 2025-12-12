@@ -22,7 +22,7 @@ export function mergeAudioBuffers(
   sampleRate: number
 ): AudioBuffer {
   const audioContext = new AudioContext();
-  const newLength = before.length + after.length;
+  const newLength = Math.max(1, before.length + after.length);
   const newBuffer = audioContext.createBuffer(numberOfChannels, newLength, sampleRate);
 
   for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {

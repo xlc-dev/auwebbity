@@ -114,9 +114,10 @@ async function loadAudioBuffer(id: string): Promise<AudioBuffer | null> {
   }
 
   const audioContext = new AudioContext();
+  const bufferLength = Math.max(1, result.length);
   const audioBuffer = audioContext.createBuffer(
     result.numberOfChannels,
-    result.length,
+    bufferLength,
     result.sampleRate
   );
 

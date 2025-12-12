@@ -4,7 +4,7 @@ export const audioOperations = {
   async copy(audioBuffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> {
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
     const endSample = Math.floor(endTime * audioBuffer.sampleRate);
-    const length = endSample - startSample;
+    const length = Math.max(1, endSample - startSample);
 
     const audioContext = new AudioContext();
     const newBuffer = audioContext.createBuffer(
@@ -16,7 +16,8 @@ export const audioOperations = {
     for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
       const oldData = audioBuffer.getChannelData(channel);
       const newData = newBuffer.getChannelData(channel);
-      for (let i = 0; i < length; i++) {
+      const copyLength = Math.min(length, endSample - startSample);
+      for (let i = 0; i < copyLength; i++) {
         newData[i] = oldData[startSample + i] ?? 0;
       }
     }
@@ -33,14 +34,14 @@ export const audioOperations = {
     const endSample = Math.floor(endTime * audioBuffer.sampleRate);
     const audioContext = new AudioContext();
 
-    const beforeLength = startSample;
+    const beforeLength = Math.max(1, startSample);
     const beforeBuffer = audioContext.createBuffer(
       audioBuffer.numberOfChannels,
       beforeLength,
       audioBuffer.sampleRate
     );
 
-    const afterLength = audioBuffer.length - endSample;
+    const afterLength = Math.max(1, audioBuffer.length - endSample);
     const afterBuffer = audioContext.createBuffer(
       audioBuffer.numberOfChannels,
       afterLength,
@@ -52,11 +53,13 @@ export const audioOperations = {
       const beforeData = beforeBuffer.getChannelData(channel);
       const afterData = afterBuffer.getChannelData(channel);
 
-      for (let i = 0; i < beforeLength; i++) {
+      const actualBeforeLength = Math.min(beforeLength, startSample);
+      for (let i = 0; i < actualBeforeLength; i++) {
         beforeData[i] = oldData[i] ?? 0;
       }
 
-      for (let i = 0; i < afterLength; i++) {
+      const actualAfterLength = Math.min(afterLength, audioBuffer.length - endSample);
+      for (let i = 0; i < actualAfterLength; i++) {
         afterData[i] = oldData[endSample + i] ?? 0;
       }
     }

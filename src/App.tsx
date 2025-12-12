@@ -213,6 +213,14 @@ export default function App() {
             onSetRepeatStart={handleSetRepeatStart}
             onSetRepeatEnd={handleSetRepeatEnd}
             onClearRepeat={handleClearRepeat}
+            onSelectionCreated={(trackId) => {
+              const map = waveformMap();
+              map.forEach((waveform, id) => {
+                if (id !== trackId) {
+                  waveform.clearSelection();
+                }
+              });
+            }}
           />
         </div>
       </Show>

@@ -4,12 +4,77 @@ import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js";
 import { useAudioStore } from "../stores/audioStore";
 import { isAbortError } from "../utils/errorUtils";
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16),
+      }
+    : null;
+}
+
+function rgbToHex(r: number, g: number, b: number): string {
+  return "#" + [r, g, b].map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+
+function darkenColor(hex: string, factor: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  return rgbToHex(
+    Math.max(0, Math.floor(rgb.r * factor)),
+    Math.max(0, Math.floor(rgb.g * factor)),
+    Math.max(0, Math.floor(rgb.b * factor))
+  );
+}
+
+function lightenColor(hex: string, factor: number): string {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  return rgbToHex(
+    Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * factor)),
+    Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * factor)),
+    Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * factor))
+  );
+}
+
+function getWaveformColors(bgColor: string | null | undefined): {
+  waveColor: string;
+  progressColor: string;
+} {
+  if (!bgColor) {
+    return {
+      waveColor: "#30363d",
+      progressColor: "#4a9eff",
+    };
+  }
+
+  const darkened = darkenColor(bgColor, 0.3);
+  const lightened = lightenColor(bgColor, 0.4);
+  return {
+    waveColor: darkened,
+    progressColor: lightened,
+  };
+}
+
 export const useWaveform = (
   containerRef: () => HTMLDivElement | undefined,
-  options?: { autoLoad?: boolean; isCurrent?: boolean }
+  options?: {
+    autoLoad?: boolean;
+    isCurrent?: boolean;
+    trackId?: string;
+    onTrackSelect?: (trackId: string) => void;
+    backgroundColor?: string | null;
+    onSelectionCreated?: (trackId: string) => void;
+  }
 ) => {
   const autoLoad = options?.autoLoad !== false;
   const isCurrent = options?.isCurrent ?? true;
+  const trackId = options?.trackId;
+  const onTrackSelect = options?.onTrackSelect;
+  const backgroundColor = options?.backgroundColor;
+  const onSelectionCreated = options?.onSelectionCreated;
   let wavesurfer: WaveSurfer | null = null;
   let regionsPlugin: RegionsPlugin | null = null;
   let dragSelectionCleanup: (() => void) | null = null;
@@ -22,7 +87,7 @@ export const useWaveform = (
   let isAudioLoaded = false;
   let currentAudioUrl: string | null = null;
 
-  const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
+  const { store, setSelection, setCurrentTime, setPlaying, setCurrentTrackId } = useAudioStore();
 
   createEffect(() => {
     const container = containerRef();
@@ -30,10 +95,12 @@ export const useWaveform = (
     if (isInitialized || wavesurfer !== null) return;
     isInitialized = true;
 
+    const colors = getWaveformColors(backgroundColor);
+
     wavesurfer = WaveSurfer.create({
       container,
-      waveColor: "#30363d",
-      progressColor: "#4a9eff",
+      waveColor: colors.waveColor,
+      progressColor: colors.progressColor,
       cursorColor: "transparent",
       cursorWidth: 0,
       barWidth: 2,
@@ -56,13 +123,11 @@ export const useWaveform = (
         regionsPlugin.clearRegions();
         setSelection(null);
 
-        if (isCurrent) {
-          dragSelectionCleanup = regionsPlugin.enableDragSelection({
-            color: "rgba(74, 158, 255, 0.3)",
-            drag: true,
-            resize: false,
-          });
-        }
+        dragSelectionCleanup = regionsPlugin.enableDragSelection({
+          color: "rgba(74, 158, 255, 0.3)",
+          drag: true,
+          resize: false,
+        });
       }
 
       const duration = wavesurfer?.getDuration() || 0;
@@ -230,17 +295,25 @@ export const useWaveform = (
     });
 
     regionsPlugin.on("region-initialized", (region) => {
-      if (!region || !isCurrent) return;
-      const existingRegions = regionsPlugin?.getRegions() || [];
-      existingRegions.forEach((r) => {
-        if (r.id !== region.id) {
-          r.remove();
-        }
-      });
+      if (!region) return;
+      if (isCurrent) {
+        const existingRegions = regionsPlugin?.getRegions() || [];
+        existingRegions.forEach((r) => {
+          if (r.id !== region.id) {
+            r.remove();
+          }
+        });
+      }
     });
 
     regionsPlugin.on("region-created", (region) => {
-      if (!region || !isCurrent) return;
+      if (!region) return;
+      if (!isCurrent && trackId && onTrackSelect) {
+        onTrackSelect(trackId);
+      }
+      if (trackId && onSelectionCreated) {
+        onSelectionCreated(trackId);
+      }
       originalRegionWidth = region.end - region.start;
       region.setOptions({
         drag: true,
@@ -253,7 +326,13 @@ export const useWaveform = (
     });
 
     regionsPlugin.on("region-clicked", (region) => {
-      if (!region || !isCurrent) return;
+      if (!region) return;
+      if (!isCurrent && trackId && onTrackSelect) {
+        onTrackSelect(trackId);
+      }
+      if (trackId && onSelectionCreated) {
+        onSelectionCreated(trackId);
+      }
       originalRegionWidth = region.end - region.start;
       setSelection({
         start: region.start,
@@ -262,14 +341,16 @@ export const useWaveform = (
     });
 
     regionsPlugin.on("region-update", (region) => {
-      if (!isCurrent) return;
       if (originalRegionWidth === null && region) {
         originalRegionWidth = region.end - region.start;
       }
     });
 
     regionsPlugin.on("region-updated", (region) => {
-      if (!region || !isCurrent) return;
+      if (!region) return;
+      if (!isCurrent && trackId && onTrackSelect) {
+        onTrackSelect(trackId);
+      }
       const duration = wavesurfer?.getDuration() || 0;
       if (duration <= 0) {
         setSelection({
@@ -429,7 +510,6 @@ export const useWaveform = (
       const maxDur =
         store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
 
-      // If we're at or past the end, restart from the beginning
       let currentTime = store.currentTime;
       if (maxDur > 0 && currentTime >= maxDur - 0.01) {
         currentTime = 0;
@@ -611,9 +691,43 @@ export const useWaveform = (
   });
 
   createEffect(() => {
+    if (!wavesurfer || !isAudioLoaded) return;
+    backgroundColor;
+
+    const wrapper = wavesurfer.getWrapper();
+    if (!wrapper) return;
+
+    const colors = getWaveformColors(backgroundColor);
+
+    try {
+      const wavePaths = wrapper.querySelectorAll("wave > path");
+      wavePaths.forEach((path) => {
+        (path as SVGPathElement).setAttribute("stroke", colors.waveColor);
+      });
+
+      const progressPaths = wrapper.querySelectorAll('[data-name="progress"] > path');
+      progressPaths.forEach((path) => {
+        (path as SVGPathElement).setAttribute("fill", colors.progressColor);
+      });
+
+      const progressElements = wrapper.querySelectorAll('[data-name="progress"]');
+      progressElements.forEach((el) => {
+        (el as HTMLElement).style.backgroundColor = colors.progressColor;
+      });
+    } catch {}
+  });
+
+  createEffect(() => {
     if (!regionsPlugin || !isAudioLoaded) return;
     const selection = store.selection;
     const currentRegions = regionsPlugin.getRegions();
+
+    if (!isCurrent) {
+      if (currentRegions.length > 0) {
+        regionsPlugin.clearRegions();
+      }
+      return;
+    }
 
     if (!selection) {
       if (currentRegions.length > 0) {
@@ -630,7 +744,7 @@ export const useWaveform = (
         start: selection.start,
         end: selection.end,
         color: "rgba(74, 158, 255, 0.3)",
-        drag: isCurrent,
+        drag: true,
         resize: false,
       });
     } else {

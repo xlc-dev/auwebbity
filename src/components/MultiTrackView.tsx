@@ -26,6 +26,7 @@ interface TrackRowProps {
 interface TrackRowPropsWithCallback extends TrackRowProps {
   onWaveformReady?: (waveform: ReturnType<typeof useWaveform>, trackId: string) => void;
   onContainerRef?: (container: HTMLDivElement) => void;
+  onSelectionCreated?: (trackId: string) => void;
 }
 
 const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
@@ -37,7 +38,14 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   const { store } = useAudioStore();
   const [containerWidth, setContainerWidth] = createSignal(0);
 
-  const waveform = useWaveform(() => containerRef, { autoLoad: false, isCurrent: props.isCurrent });
+  const waveform = useWaveform(() => containerRef, {
+    autoLoad: false,
+    isCurrent: props.isCurrent,
+    trackId: props.track.id,
+    onTrackSelect: props.onSelect,
+    backgroundColor: props.track.backgroundColor,
+    onSelectionCreated: props.onSelectionCreated,
+  });
 
   const trackWidth = createMemo(() => {
     const maxDur =
@@ -295,8 +303,13 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
           ref={handleContainerRef}
           class="min-h-[150px] sm:min-h-[180px] md:min-h-[200px] flex-shrink-0 [&_wave]:cursor-pointer [&>*]:overflow-visible [&_wave]:overflow-visible [&>*]:overflow-x-visible [&_wave]:overflow-x-visible"
           style={{
-            ...(!props.isCurrent ? { "pointer-events": "none" } : {}),
             width: trackWidth(),
+          }}
+          onClick={(e) => {
+            if (!props.isCurrent) {
+              e.stopPropagation();
+              props.onSelect();
+            }
           }}
         />
       </div>
@@ -310,6 +323,7 @@ interface MultiTrackViewProps {
   onSetRepeatStart?: (time: number) => void;
   onSetRepeatEnd?: (time: number) => void;
   onClearRepeat?: () => void;
+  onSelectionCreated?: (trackId: string) => void;
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
@@ -507,6 +521,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                     canDelete={store.tracks.length > 1}
                     onWaveformReady={props.onWaveformReady}
                     onContainerRef={handleContainerRef}
+                    onSelectionCreated={props.onSelectionCreated}
                   />
                 )}
               </For>

@@ -47,24 +47,24 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
     if (isInput) return;
 
     if ((e.ctrlKey || e.metaKey) && e.key === "x") {
-      e.preventDefault();
       if (store.selection) {
+        e.preventDefault();
         options.onCut();
       }
       return;
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key === "c") {
-      e.preventDefault();
       if (store.selection) {
+        e.preventDefault();
         options.onCopy();
       }
       return;
     }
 
     if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-      e.preventDefault();
       if (store.clipboard) {
+        e.preventDefault();
         options.onPaste();
       }
       return;
@@ -89,16 +89,16 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
     }
 
     if (e.key === "Escape") {
-      e.preventDefault();
       if (store.selection) {
+        e.preventDefault();
         options.waveform()?.clearSelection();
       }
       return;
     }
 
-    if (e.key === "r" || e.key === "R") {
-      e.preventDefault();
+    if ((e.key === "r" || e.key === "R") && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
       if (store.repeatRegion && options.onClearRepeat) {
+        e.preventDefault();
         options.onClearRepeat();
       }
       return;
