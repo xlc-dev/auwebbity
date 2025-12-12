@@ -11,6 +11,7 @@ interface UseKeyboardShortcutsOptions {
   onRedo: () => void;
   onPlayPause?: () => void;
   onClearRepeat?: () => void;
+  onClearAllSelections?: () => void;
 }
 
 export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
@@ -89,7 +90,10 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
     }
 
     if (e.key === "Escape") {
-      if (store.selection) {
+      if (store.selection && options.onClearAllSelections) {
+        e.preventDefault();
+        options.onClearAllSelections();
+      } else if (store.selection) {
         e.preventDefault();
         options.waveform()?.clearSelection();
       }

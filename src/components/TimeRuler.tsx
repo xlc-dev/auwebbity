@@ -220,7 +220,10 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
         "cursor-pointer": !selectingRepeatStart(),
         "cursor-crosshair": selectingRepeatStart(),
       }}
-      style={{ width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%", maxWidth: "100%" }}
+      style={{
+        width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%",
+        "max-width": "100%",
+      }}
       onClick={handleClick}
       onDblClick={handleDoubleClick}
       onContextMenu={handleContextMenu}

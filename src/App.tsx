@@ -102,6 +102,13 @@ export default function App() {
     setRepeatRegion(null);
   };
 
+  const clearAllSelections = () => {
+    const map = waveformMap();
+    map.forEach((waveform) => {
+      waveform.clearSelection();
+    });
+  };
+
   useKeyboardShortcuts({
     waveform: waveformRef,
     onCut: () => handleOperation(() => audioOps.handleCut(waveformRef), "Failed to cut"),
@@ -118,6 +125,7 @@ export default function App() {
       }
     },
     onClearRepeat: handleClearRepeat,
+    onClearAllSelections: clearAllSelections,
   });
 
   onMount(async () => {
@@ -271,6 +279,31 @@ export default function App() {
         isExporting={isExporting()}
         hasSelection={store.selection !== null}
         recorder={recorder}
+        onNormalize={(scope) =>
+          handleOperation(
+            () => audioOps.handleNormalize(scope, (trackId) => waveformMap().get(trackId) || null),
+            "Failed to normalize"
+          )
+        }
+        onAmplify={(gain, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleAmplify(scope, (trackId) => waveformMap().get(trackId) || null, gain),
+            "Failed to amplify"
+          )
+        }
+        onSilence={(scope) =>
+          handleOperation(
+            () => audioOps.handleSilence(scope, (trackId) => waveformMap().get(trackId) || null),
+            "Failed to silence"
+          )
+        }
+        onReverse={(scope) =>
+          handleOperation(
+            () => audioOps.handleReverse(scope, (trackId) => waveformMap().get(trackId) || null),
+            "Failed to reverse"
+          )
+        }
       />
       <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />

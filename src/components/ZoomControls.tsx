@@ -39,10 +39,10 @@ export const ZoomControls: Component = () => {
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-            <path d="M21 3v5h-5" />
-            <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-            <path d="M3 21v-5h5" />
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+            <path d="M8 11h6" />
+            <path d="M11 8l-3 3 3 3" />
           </svg>
         }
         label="Reset Zoom"

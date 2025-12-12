@@ -3,6 +3,8 @@ import { Button } from "./Button";
 import { PlaybackControls } from "./PlaybackControls";
 import { ZoomControls } from "./ZoomControls";
 import { Dropdown } from "./Dropdown";
+import { EffectsMenu } from "./EffectsMenu";
+import { Tooltip } from "./Tooltip";
 import { useAudioStore } from "../stores/audioStore";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
 import { formatTime } from "../utils/timeUtils";
@@ -26,6 +28,10 @@ interface ToolbarProps {
   onPauseAll?: () => void;
   onStopAll?: () => void;
   onSeekAll?: (normalizedPosition: number) => void;
+  onNormalize: (scope: "all" | "track" | "selection") => void;
+  onAmplify: (gain: number, scope: "all" | "track" | "selection") => void;
+  onSilence: (scope: "all" | "track" | "selection") => void;
+  onReverse: (scope: "all" | "track" | "selection") => void;
 }
 
 export const Toolbar: Component<ToolbarProps> = (props) => {
@@ -78,37 +84,36 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             variant="secondary"
           />
           <div class="flex items-center gap-1 sm:gap-1.5">
-            <button
-              onClick={props.onRecordClick}
-              class="group relative flex items-center justify-center rounded-md border cursor-pointer transition-all duration-200 p-0 overflow-visible w-8 h-8 sm:w-9 sm:h-9 hover:-translate-y-px active:translate-y-0 border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)]"
-              classList={{
-                "text-[var(--color-recording)] border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.1)] hover:border-[var(--color-recording)] active:bg-[rgba(248,81,73,0.15)]":
-                  props.recorder.isRecording(),
-              }}
-              aria-label={props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}
-            >
-              <Show when={props.recorder.isRecording()}>
-                <span class="absolute top-0 right-0 w-2 h-2 bg-[var(--color-recording)] rounded-full animate-ping"></span>
-                <span class="absolute top-0 right-0 w-2 h-2 bg-[var(--color-recording)] rounded-full"></span>
-              </Show>
-              <span class="relative inline-flex items-center justify-center w-full h-full [&_svg]:text-inherit">
-                <Show
-                  when={props.recorder.isRecording()}
-                  fallback={
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
-                    </svg>
-                  }
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                  </svg>
+            <Tooltip label={props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}>
+              <button
+                onClick={props.onRecordClick}
+                class="relative flex items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] cursor-pointer transition-all duration-200 p-0 hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:translate-y-0 w-8 h-8 sm:w-9 sm:h-9"
+                classList={{
+                  "text-[var(--color-recording)] border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.1)] hover:border-[var(--color-recording)] active:bg-[rgba(248,81,73,0.15)]":
+                    props.recorder.isRecording(),
+                }}
+                aria-label={props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}
+              >
+                <Show when={props.recorder.isRecording()}>
+                  <span class="absolute top-0 right-0 w-2 h-2 bg-[var(--color-recording)] rounded-full animate-ping"></span>
+                  <span class="absolute top-0 right-0 w-2 h-2 bg-[var(--color-recording)] rounded-full"></span>
                 </Show>
-              </span>
-              <span class="absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-dark)] text-white text-[0.625rem] sm:text-xs font-medium whitespace-nowrap rounded opacity-0 pointer-events-none transition-[opacity,transform] duration-150 z-[1000] group-hover:opacity-100 group-hover:-translate-y-0.5 [&::after]:content-[''] [&::after]:absolute [&::after]:top-full [&::after]:left-1/2 [&::after]:-translate-x-1/2 [&::after]:border-4 [&::after]:border-transparent [&::after]:border-t-[var(--color-dark)]">
-                {props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}
-              </span>
-            </button>
+                <span class="relative inline-flex items-center justify-center w-full h-full [&_svg]:text-inherit">
+                  <Show
+                    when={props.recorder.isRecording()}
+                    fallback={
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z" />
+                      </svg>
+                    }
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                      <rect x="6" y="6" width="12" height="12" rx="2" />
+                    </svg>
+                  </Show>
+                </span>
+              </button>
+            </Tooltip>
             <Show when={props.recorder.isRecording()}>
               <span class="text-[var(--color-recording)] text-sm font-medium tabular-nums">
                 {formatTime(props.recorder.recordingDuration())}
@@ -127,6 +132,13 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
         </div>
         <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center order-2 sm:order-3">
           <ZoomControls />
+          <EffectsMenu
+            onNormalize={props.onNormalize}
+            onAmplify={props.onAmplify}
+            onSilence={props.onSilence}
+            onReverse={props.onReverse}
+            disabled={props.isExporting || !getCurrentTrack()}
+          />
           <div class="flex items-center gap-1 sm:gap-1.5">
             <Dropdown
               options={[

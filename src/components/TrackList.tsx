@@ -1,5 +1,6 @@
 import { Component, Show, createSignal, For } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
+import { Tooltip } from "./Tooltip";
 import { formatTime } from "../utils/timeUtils";
 
 interface TrackListProps {
@@ -52,23 +53,24 @@ export const TrackList: Component<TrackListProps> = (props) => {
     <div class="w-full sm:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex flex-col h-full">
       <div class="p-3 border-b border-[var(--color-border)] flex items-center justify-between">
         <h2 class="text-sm font-semibold text-[var(--color-text)]">Tracks</h2>
-        <button
-          onClick={props.onAddTrack}
-          class="flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--color-hover)] text-[var(--color-text)] transition-colors"
-          aria-label="Add Track"
-          title="Add Track"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
+        <Tooltip label="Add Track">
+          <button
+            onClick={props.onAddTrack}
+            class="flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--color-hover)] text-[var(--color-text)] transition-colors"
+            aria-label="Add Track"
           >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        </Tooltip>
       </div>
       <div class="flex-1 overflow-y-auto">
         <Show
@@ -107,30 +109,11 @@ export const TrackList: Component<TrackListProps> = (props) => {
                             </div>
                           </div>
                           <div class="flex items-center gap-1">
-                            <button
-                              onClick={(e) => handleRenameStart(track.id, e)}
-                              class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
-                              aria-label="Rename Track"
-                              title="Rename Track"
-                            >
-                              <svg
-                                width="14"
-                                height="14"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                              >
-                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
-                            </button>
-                            <Show when={store.tracks.length > 1}>
+                            <Tooltip label="Rename Track">
                               <button
-                                onClick={(e) => handleDeleteTrack(track.id, e)}
-                                class="p-1 rounded hover:bg-[var(--color-danger)]/20 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] transition-colors"
-                                aria-label="Delete Track"
-                                title="Delete Track"
+                                onClick={(e) => handleRenameStart(track.id, e)}
+                                class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors"
+                                aria-label="Rename Track"
                               >
                                 <svg
                                   width="14"
@@ -140,9 +123,30 @@ export const TrackList: Component<TrackListProps> = (props) => {
                                   stroke="currentColor"
                                   stroke-width="2"
                                 >
-                                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                                 </svg>
                               </button>
+                            </Tooltip>
+                            <Show when={store.tracks.length > 1}>
+                              <Tooltip label="Delete Track">
+                                <button
+                                  onClick={(e) => handleDeleteTrack(track.id, e)}
+                                  class="p-1 rounded hover:bg-[var(--color-danger)]/20 text-[var(--color-text-secondary)] hover:text-[var(--color-danger)] transition-colors"
+                                  aria-label="Delete Track"
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                  >
+                                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                  </svg>
+                                </button>
+                              </Tooltip>
                             </Show>
                           </div>
                         </div>

@@ -6,13 +6,14 @@ import { isAbortError } from "../utils/errorUtils";
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16),
-      }
-    : null;
+  if (!result || !result[1] || !result[2] || !result[3]) {
+    return null;
+  }
+  return {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16),
+  };
 }
 
 function rgbToHex(r: number, g: number, b: number): string {
@@ -87,7 +88,7 @@ export const useWaveform = (
   let isAudioLoaded = false;
   let currentAudioUrl: string | null = null;
 
-  const { store, setSelection, setCurrentTime, setPlaying, setCurrentTrackId } = useAudioStore();
+  const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
 
   createEffect(() => {
     const container = containerRef();
@@ -296,14 +297,15 @@ export const useWaveform = (
 
     regionsPlugin.on("region-initialized", (region) => {
       if (!region) return;
-      if (isCurrent) {
-        const existingRegions = regionsPlugin?.getRegions() || [];
-        existingRegions.forEach((r) => {
-          if (r.id !== region.id) {
-            r.remove();
-          }
-        });
+      if (trackId && onSelectionCreated) {
+        onSelectionCreated(trackId);
       }
+      const existingRegions = regionsPlugin?.getRegions() || [];
+      existingRegions.forEach((r) => {
+        if (r.id !== region.id) {
+          r.remove();
+        }
+      });
     });
 
     regionsPlugin.on("region-created", (region) => {
