@@ -1,6 +1,5 @@
 import { createSignal, Show, onMount, createEffect } from "solid-js";
 import { MultiTrackView } from "./components/MultiTrackView";
-import { SelectionToolbar } from "./components/SelectionToolbar";
 import { Toolbar } from "./components/Toolbar";
 import { ToastContainer } from "./components/Toast";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
@@ -232,15 +231,6 @@ export default function App() {
           />
         </div>
       </Show>
-      <SelectionToolbar
-        onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
-        onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
-        onPaste={createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
-        onDelete={createOperationHandler(
-          () => audioOps.handleDelete(waveformRef),
-          "Failed to delete"
-        )}
-      />
       <Toolbar
         waveform={waveformRef() ?? undefined}
         onPlayAll={playAllTracks}
@@ -297,6 +287,25 @@ export default function App() {
             "Failed to reverse"
           )
         }
+        onFadeIn={(scope) =>
+          handleOperation(
+            () => audioOps.handleFadeIn(scope, (trackId) => waveformMap().get(trackId) || null),
+            "Failed to fade in"
+          )
+        }
+        onFadeOut={(scope) =>
+          handleOperation(
+            () => audioOps.handleFadeOut(scope, (trackId) => waveformMap().get(trackId) || null),
+            "Failed to fade out"
+          )
+        }
+        onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
+        onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
+        onPaste={createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
+        onDelete={createOperationHandler(
+          () => audioOps.handleDelete(waveformRef),
+          "Failed to delete"
+        )}
       />
       <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />

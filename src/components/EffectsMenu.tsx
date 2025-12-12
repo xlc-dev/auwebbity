@@ -9,6 +9,8 @@ interface EffectsMenuProps {
   onAmplify: (gain: number, scope: EffectScope) => void;
   onSilence: (scope: EffectScope) => void;
   onReverse: (scope: EffectScope) => void;
+  onFadeIn: (scope: EffectScope) => void;
+  onFadeOut: (scope: EffectScope) => void;
   disabled?: boolean;
 }
 
@@ -132,6 +134,16 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     closeAll();
   };
 
+  const handleFadeIn = () => {
+    props.onFadeIn(getEffectiveScope());
+    closeAll();
+  };
+
+  const handleFadeOut = () => {
+    props.onFadeOut(getEffectiveScope());
+    closeAll();
+  };
+
   const amplifyPercent = () => {
     const gain = parseFloat(amplifyValue());
     if (isNaN(gain)) return "";
@@ -149,6 +161,8 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
       requiresSelection: true,
     },
     { label: "Reverse", onClick: handleReverse },
+    { label: "Fade In", onClick: handleFadeIn },
+    { label: "Fade Out", onClick: handleFadeOut },
   ];
 
   const menuButtonClass =

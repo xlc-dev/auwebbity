@@ -236,6 +236,26 @@ export const useAudioOperations = () => {
     );
   };
 
+  const handleFadeIn = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    fadeDuration?: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.fadeIn(buffer, fadeDuration, start, end)
+    );
+  };
+
+  const handleFadeOut = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    fadeDuration?: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.fadeOut(buffer, fadeDuration, start, end)
+    );
+  };
+
   return {
     handleCut,
     handleCopy,
@@ -245,6 +265,8 @@ export const useAudioOperations = () => {
     handleAmplify,
     handleSilence,
     handleReverse,
+    handleFadeIn,
+    handleFadeOut,
     isLoading,
   };
 };
