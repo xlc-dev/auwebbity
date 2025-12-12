@@ -114,7 +114,9 @@ export const useWaveform = (
     });
 
     wavesurfer.on("timeupdate", (time) => {
-      if (isSeeking || !store.isPlaying) return;
+      if (isSeeking) return;
+      const isWaveformPlaying = wavesurfer?.isPlaying() ?? false;
+      if (!isWaveformPlaying && !store.isPlaying) return;
       try {
         const maxDur =
           store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
@@ -146,6 +148,15 @@ export const useWaveform = (
       const currentTime = store.currentTime;
       const progress = Math.max(0, Math.min(1, currentTime / duration));
 
+      const isWaveformPlaying = wavesurfer.isPlaying();
+      if (isWaveformPlaying && store.isPlaying) {
+        const waveformTime = wavesurfer.getCurrentTime() || 0;
+        const timeDiff = Math.abs(waveformTime - currentTime);
+        if (timeDiff < 0.1) {
+          return;
+        }
+      }
+
       try {
         wavesurfer.seekTo(progress);
       } catch (err) {
@@ -159,7 +170,11 @@ export const useWaveform = (
             const currentTime = store.currentTime;
             const clampedTime = Math.max(0, Math.min(duration, currentTime));
             const seekPosition = clampedTime / duration;
-            wavesurfer.seekTo(seekPosition);
+
+            const currentPos = wavesurfer.getCurrentTime() / duration;
+            if (Math.abs(currentPos - seekPosition) > 0.001) {
+              wavesurfer.seekTo(seekPosition);
+            }
 
             if (!wavesurfer.isPlaying() && clampedTime < duration) {
               wavesurfer.play();
@@ -406,7 +421,16 @@ export const useWaveform = (
       const duration = wavesurfer.getDuration();
       if (!duration || duration <= 0) return;
 
-      const currentTime = store.currentTime;
+      const maxDur =
+        store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+
+      // If we're at or past the end, restart from the beginning
+      let currentTime = store.currentTime;
+      if (maxDur > 0 && currentTime >= maxDur - 0.01) {
+        currentTime = 0;
+        setCurrentTime(0);
+      }
+
       const clampedTime = Math.max(0, Math.min(duration, currentTime));
       const seekPosition = clampedTime / duration;
 
