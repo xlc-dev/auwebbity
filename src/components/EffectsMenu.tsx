@@ -173,7 +173,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
       <Tooltip label="Effects">
         <button
           type="button"
-          class="flex items-center gap-1.5 sm:gap-2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.75rem] sm:text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] focus:outline-none focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed w-8 h-8 sm:w-9 sm:h-9 p-0 justify-center"
+          class="flex items-center gap-1.5 sm:gap-2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.75rem] sm:text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:translate-y-0 focus:outline-none focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 w-8 h-8 sm:w-9 sm:h-9 p-0 justify-center"
           classList={{
             "border-[var(--color-primary)]": isOpen(),
           }}
@@ -200,7 +200,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
         </button>
       </Tooltip>
       <Show when={isOpen()}>
-        <div class="absolute bottom-[calc(100%+4px)] right-0 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md overflow-hidden z-[1000] min-w-[220px] animate-[dropdownSlideDown_0.15s_ease-out]">
+        <div class="absolute bottom-[calc(100%+4px)] right-0 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md overflow-hidden z-[1000] w-[calc(100vw-3rem)] sm:w-auto sm:min-w-[220px] max-w-[280px] sm:max-w-none animate-[dropdownSlideDown_0.15s_ease-out]">
           <Show when={!showAmplifyDialog()}>
             <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
               <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">

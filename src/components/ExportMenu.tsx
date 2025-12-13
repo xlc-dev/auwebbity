@@ -123,7 +123,7 @@ export const ExportMenu: Component<ExportMenuProps> = (props) => {
       >
         <button
           type="button"
-          class="flex items-center gap-1.5 sm:gap-2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.75rem] sm:text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] focus:outline-none focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed w-8 h-8 sm:w-9 sm:h-9 p-0 justify-center"
+          class="flex items-center gap-1.5 sm:gap-2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.75rem] sm:text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:translate-y-0 focus:outline-none focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 w-8 h-8 sm:w-9 sm:h-9 p-0 justify-center"
           classList={{
             "border-[var(--color-primary)]": isOpen(),
           }}

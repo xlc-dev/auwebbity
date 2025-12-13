@@ -307,7 +307,7 @@ export default function App() {
         </div>
       </Show>
       <Show when={isInitialized()}>
-        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 border-t border-[var(--color-border)] pb-[70px] sm:pb-[80px] md:pb-[90px] lg:pb-[100px] p-2 sm:p-3 md:p-4">
+        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 border-t border-[var(--color-border)] pb-[60px] sm:pb-[75px] md:pb-[85px] lg:pb-[95px] p-2 sm:p-3 md:p-4">
           <MultiTrackView
             onWaveformReady={(waveform, trackId) => {
               setWaveformMap((map) => {

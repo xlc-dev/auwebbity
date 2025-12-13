@@ -45,12 +45,12 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
   const hasSelection = () => store.selection !== null;
   const hasClipboard = () => store.clipboard !== null;
 
-  const Separator = () => <div class="hidden sm:block h-6 w-px bg-[var(--color-border)]"></div>;
+  const Separator = () => <div class="hidden md:block h-6 w-px bg-[var(--color-border)] flex-shrink-0"></div>;
 
   return (
-    <div class="fixed bottom-0 left-0 right-0 z-[100] p-1.5 sm:p-2 md:p-3 pointer-events-none">
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 flex-wrap max-w-[1200px] mx-auto p-2 sm:p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg pointer-events-auto backdrop-blur-[10px]">
-        <div class="flex items-center gap-1.5 sm:gap-2">
+    <div class="fixed bottom-0 left-0 right-0 z-[100] p-1 sm:p-1.5 md:p-2 lg:p-3 pointer-events-none">
+      <div class="flex flex-row items-center justify-start sm:justify-center gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap max-w-[1200px] mx-auto p-1.5 sm:p-2 md:p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg pointer-events-auto backdrop-blur-[10px] shadow-lg">
+        <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
           <Button
             icon={
               <svg
@@ -97,7 +97,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
+        <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -146,11 +146,11 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0 w-full sm:w-auto justify-center">
+        <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-1 min-w-0 w-full sm:w-auto justify-center flex-shrink-0">
           <Tooltip label={props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}>
             <button
               onClick={props.onRecordClick}
-              class="relative flex items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] cursor-pointer transition-all duration-200 p-0 hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:translate-y-0 w-9 h-9"
+              class="relative flex items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] cursor-pointer transition-all duration-200 p-0 hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:translate-y-0 w-8 h-8 sm:w-9 sm:h-9"
               classList={{
                 "text-[var(--color-recording)] border-[var(--color-recording)] hover:bg-[rgba(248,81,73,0.1)] hover:border-[var(--color-recording)] active:bg-[rgba(248,81,73,0.15)]":
                   props.recorder.isRecording(),
@@ -178,7 +178,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             </button>
           </Tooltip>
           <Show when={props.recorder.isRecording()}>
-            <span class="text-[var(--color-recording)] text-xs sm:text-sm font-medium tabular-nums">
+            <span class="text-[var(--color-recording)] text-xs sm:text-sm font-medium tabular-nums whitespace-nowrap">
               {formatTime(props.recorder.recordingDuration())}
             </span>
           </Show>
@@ -193,13 +193,13 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
+        <div class="hidden md:flex items-center gap-1 sm:gap-1.5 md:gap-2">
           <ZoomControls />
         </div>
 
         <Separator />
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
+        <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
           <EffectsMenu
             onNormalize={props.onNormalize}
             onAmplify={props.onAmplify}
@@ -213,7 +213,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
+        <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
           <ExportMenu
             onExport={props.onExport}
             disabled={!getCurrentTrack()}
@@ -233,7 +233,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
+        <div class="hidden sm:flex items-center gap-1 sm:gap-1.5 md:gap-2">
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -249,7 +249,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Show when={props.onHelpClick}>
           <Separator />
-          <div class="flex items-center gap-1.5 sm:gap-2">
+          <div class="hidden md:flex items-center gap-1 sm:gap-1.5 md:gap-2">
             <Button
               icon={
                 <svg

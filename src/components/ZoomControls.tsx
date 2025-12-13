@@ -6,7 +6,7 @@ export const ZoomControls: Component = () => {
   const { zoomIn, zoomOut, resetZoom } = useAudioStore();
 
   return (
-    <div class="flex gap-1.5">
+    <div class="flex gap-1 sm:gap-1.5 md:gap-2">
       <Button
         icon={
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
