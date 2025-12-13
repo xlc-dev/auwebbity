@@ -2,8 +2,8 @@ import { Component, Show } from "solid-js";
 import { Button } from "./Button";
 import { PlaybackControls } from "./PlaybackControls";
 import { ZoomControls } from "./ZoomControls";
-import { Dropdown } from "./Dropdown";
 import { EffectsMenu } from "./EffectsMenu";
+import { ExportMenu } from "./ExportMenu";
 import { Tooltip } from "./Tooltip";
 import { useAudioStore } from "../stores/audioStore";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
@@ -12,15 +12,13 @@ import { formatTime } from "../utils/timeUtils";
 interface ToolbarProps {
   waveform?: ReturnType<typeof import("../hooks/useWaveform").useWaveform>;
   onImportClick: () => void;
-  onExport: () => void;
+  onExport: (format: "wav" | "mp3" | "ogg", quality: string) => void;
   onReset: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onRecordClick: () => void;
   canUndo: boolean;
   canRedo: boolean;
-  exportFormat: "wav" | "mp3" | "ogg";
-  setExportFormat: (format: "wav" | "mp3" | "ogg") => void;
   isExporting: boolean;
   hasSelection: boolean;
   recorder: ReturnType<typeof useAudioRecorder>;
@@ -43,7 +41,6 @@ interface ToolbarProps {
 
 export const Toolbar: Component<ToolbarProps> = (props) => {
   const { getCurrentTrack, store } = useAudioStore();
-  const hasProjectName = () => !!store.projectName?.trim();
 
   const hasSelection = () => store.selection !== null;
   const hasClipboard = () => store.clipboard !== null;
@@ -217,50 +214,11 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
         <Separator />
 
         <div class="flex items-center gap-1.5 sm:gap-2">
-          <Dropdown
-            options={[
-              { value: "wav", label: "WAV" },
-              { value: "mp3", label: "MP3" },
-              { value: "ogg", label: "OGG" },
-            ]}
-            value={props.exportFormat}
-            onChange={(value) => props.setExportFormat(value as "wav" | "mp3" | "ogg")}
-            disabled={props.isExporting || !getCurrentTrack()}
+          <ExportMenu
+            onExport={props.onExport}
+            disabled={!getCurrentTrack()}
+            isExporting={props.isExporting}
           />
-          <Tooltip
-            label={
-              !hasProjectName()
-                ? "Enter a project name to export"
-                : props.isExporting
-                  ? "Exporting..."
-                  : "Export Audio"
-            }
-          >
-            <button
-              onClick={props.onExport}
-              disabled={!getCurrentTrack() || props.isExporting || !hasProjectName()}
-              class="flex items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] cursor-pointer transition-all duration-200 p-0 hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:bg-[var(--color-active)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[var(--color-bg-elevated)] disabled:hover:border-[var(--color-border)] disabled:hover:translate-y-0 w-8 h-8 sm:w-9 sm:h-9"
-              aria-label={
-                !hasProjectName()
-                  ? "Enter a project name to export"
-                  : props.isExporting
-                    ? "Exporting..."
-                    : "Export Audio"
-              }
-            >
-              <span class="flex items-center justify-center w-full h-full [&_svg]:text-inherit">
-                {props.isExporting ? (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                  </svg>
-                ) : (
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-                  </svg>
-                )}
-              </span>
-            </button>
-          </Tooltip>
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

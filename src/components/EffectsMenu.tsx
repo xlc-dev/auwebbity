@@ -216,7 +216,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                     return (
                       <button
                         type="button"
-                        class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         classList={{
                           "bg-[var(--color-primary)]/20 text-[var(--color-primary)]": isSelected(),
                           "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":

@@ -13,7 +13,6 @@ import { useFileImport } from "./hooks/useFileImport";
 import { useAudioOperations } from "./hooks/useAudioOperations";
 import { useToast } from "./hooks/useToast";
 import { audioOperations } from "./utils/audioOperations";
-import { formatDateForFilename } from "./utils/dateUtils";
 import { getErrorMessage } from "./utils/errorUtils";
 
 export default function App() {
@@ -28,7 +27,6 @@ export default function App() {
   const [showResetDialog, setShowResetDialog] = createSignal(false);
   const [showShortcuts, setShowShortcuts] = createSignal(false);
   const [isExporting, setIsExporting] = createSignal(false);
-  const [exportFormat, setExportFormat] = createSignal<"wav" | "mp3" | "ogg">("wav");
   const [isDragging, setIsDragging] = createSignal(false);
   let fileInputRef: HTMLInputElement | undefined;
 
@@ -106,7 +104,7 @@ export default function App() {
     await resetStore();
   };
 
-  const handleExport = async () => {
+  const handleExport = async (format: "wav" | "mp3" | "ogg", quality: string) => {
     if (store.tracks.length === 0) {
       toast.addToast("No audio tracks to export");
       return;
@@ -137,9 +135,8 @@ export default function App() {
         return;
       }
 
-      const format = exportFormat();
       const filename = `${projectName}.${format}`;
-      await audioOperations.exportAudio(mixedBuffer, format, filename);
+      await audioOperations.exportAudio(mixedBuffer, format, filename, quality);
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to export audio"));
     } finally {
@@ -360,8 +357,6 @@ export default function App() {
         }}
         canUndo={canUndo()}
         canRedo={canRedo()}
-        exportFormat={exportFormat()}
-        setExportFormat={setExportFormat}
         isExporting={isExporting()}
         hasSelection={store.selection !== null}
         recorder={recorder}

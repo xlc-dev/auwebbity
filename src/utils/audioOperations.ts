@@ -104,12 +104,13 @@ export const audioOperations = {
     return newBuffer;
   },
 
-  async audioBufferToBlob(audioBuffer: AudioBuffer): Promise<Blob> {
+  async audioBufferToBlob(audioBuffer: AudioBuffer, bitDepth: number = 16): Promise<Blob> {
     const numberOfChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
     const length = audioBuffer.length;
+    const bytesPerSample = Math.max(2, Math.floor(bitDepth / 8));
 
-    const buffer = new ArrayBuffer(44 + length * numberOfChannels * 2);
+    const buffer = new ArrayBuffer(44 + length * numberOfChannels * bytesPerSample);
     const view = new DataView(buffer);
 
     const writeString = (offset: number, string: string) => {
@@ -119,25 +120,39 @@ export const audioOperations = {
     };
 
     writeString(0, "RIFF");
-    view.setUint32(4, 36 + length * numberOfChannels * 2, true);
+    view.setUint32(4, 36 + length * numberOfChannels * bytesPerSample, true);
     writeString(8, "WAVE");
     writeString(12, "fmt ");
     view.setUint32(16, 16, true);
     view.setUint16(20, 1, true);
     view.setUint16(22, numberOfChannels, true);
     view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numberOfChannels * 2, true);
-    view.setUint16(32, numberOfChannels * 2, true);
-    view.setUint16(34, 16, true);
+    view.setUint32(28, sampleRate * numberOfChannels * bytesPerSample, true);
+    view.setUint16(32, numberOfChannels * bytesPerSample, true);
+    view.setUint16(34, bitDepth, true);
     writeString(36, "data");
-    view.setUint32(40, length * numberOfChannels * 2, true);
+    view.setUint32(40, length * numberOfChannels * bytesPerSample, true);
 
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let channel = 0; channel < numberOfChannels; channel++) {
         const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i] ?? 0));
-        view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-        offset += 2;
+        if (bitDepth === 16) {
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+          offset += 2;
+        } else if (bitDepth === 24) {
+          const intSample = Math.floor(sample * 0x7fffff);
+          view.setUint8(offset, intSample & 0xff);
+          view.setUint8(offset + 1, (intSample >> 8) & 0xff);
+          view.setUint8(offset + 2, (intSample >> 16) & 0xff);
+          offset += 3;
+        } else if (bitDepth === 32) {
+          view.setInt32(offset, sample < 0 ? sample * 0x80000000 : sample * 0x7fffffff, true);
+          offset += 4;
+        } else {
+          view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+          offset += 2;
+        }
       }
     }
 
@@ -147,12 +162,13 @@ export const audioOperations = {
   async exportAudio(
     audioBuffer: AudioBuffer,
     format: "wav" | "mp3" | "ogg" = "wav",
-    filename?: string
+    filename?: string,
+    quality?: string
   ): Promise<void> {
     const blob =
       format === "wav"
-        ? await this.audioBufferToBlob(audioBuffer)
-        : await this.audioBufferToMP3OrOGG(audioBuffer, format);
+        ? await this.audioBufferToBlob(audioBuffer, quality ? parseInt(quality, 10) : 16)
+        : await this.audioBufferToMP3OrOGG(audioBuffer, format, quality);
 
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
@@ -166,7 +182,11 @@ export const audioOperations = {
     URL.revokeObjectURL(url);
   },
 
-  async audioBufferToMP3OrOGG(audioBuffer: AudioBuffer, format: "mp3" | "ogg"): Promise<Blob> {
+  async audioBufferToMP3OrOGG(
+    audioBuffer: AudioBuffer,
+    format: "mp3" | "ogg",
+    quality?: string
+  ): Promise<Blob> {
     const wavBlob = await this.audioBufferToBlob(audioBuffer);
     const wavArrayBuffer = await wavBlob.arrayBuffer();
 
@@ -183,15 +203,21 @@ export const audioOperations = {
       await ffmpeg.writeFile("input.wav", new Uint8Array(wavArrayBuffer));
 
       const outputFile = `output.${format}`;
-      await ffmpeg.exec([
-        "-i",
-        "input.wav",
-        "-codec:a",
-        format === "mp3" ? "libmp3lame" : "libvorbis",
-        "-qscale:a",
-        "2",
-        outputFile,
-      ]);
+      const args = ["-i", "input.wav", "-codec:a"];
+
+      if (format === "mp3") {
+        args.push("libmp3lame");
+        const bitrate = quality || "192";
+        args.push("-b:a", `${bitrate}k`);
+      } else {
+        args.push("libvorbis");
+        const qualityValue = quality || "5";
+        args.push("-qscale:a", qualityValue);
+      }
+
+      args.push(outputFile);
+
+      await ffmpeg.exec(args);
 
       const data = await ffmpeg.readFile(outputFile);
 
