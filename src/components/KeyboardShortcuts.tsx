@@ -17,6 +17,7 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
     { keys: ["Ctrl", "Shift", "Z"], description: "Redo", mac: ["Cmd", "Shift", "Z"] },
     { keys: ["Ctrl", "Y"], description: "Redo", mac: ["Cmd", "Y"] },
     { keys: ["Escape"], description: "Clear selection" },
+    { keys: ["R"], description: "Clear repeat region" },
   ];
 
   const isMac = () => {

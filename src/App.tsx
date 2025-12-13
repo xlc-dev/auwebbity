@@ -16,7 +16,17 @@ import { audioOperations } from "./utils/audioOperations";
 import { getErrorMessage } from "./utils/errorUtils";
 
 export default function App() {
-  const { store, resetStore, undo, redo, canUndo, canRedo, setRepeatRegion } = useAudioStore();
+  const {
+    store,
+    resetStore,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    setRepeatRegion,
+    saveProject,
+    loadProject,
+  } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
   const [waveformMap, setWaveformMap] = createSignal<Map<string, ReturnType<typeof useWaveform>>>(
@@ -29,6 +39,7 @@ export default function App() {
   const [isExporting, setIsExporting] = createSignal(false);
   const [isDragging, setIsDragging] = createSignal(false);
   let fileInputRef: HTMLInputElement | undefined;
+  let projectInputRef: HTMLInputElement | undefined;
 
   const fileImport = useFileImport();
   const audioOps = useAudioOperations();
@@ -50,6 +61,45 @@ export default function App() {
 
   const handleImportClick = () => {
     fileInputRef?.click();
+  };
+
+  const handleSaveProject = async () => {
+    try {
+      await saveProject();
+      toast.addToast("Project saved successfully");
+    } catch (err) {
+      toast.addToast(getErrorMessage(err, "Failed to save project"));
+    }
+  };
+
+  const handleLoadProject = () => {
+    projectInputRef?.click();
+  };
+
+  const handleProjectLoad = async (e: Event) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    try {
+      stopAllTracks();
+      waveformRef()?.stop();
+      waveformRef()?.clearSelection();
+      waveformMap().forEach((waveform) => {
+        waveform.stop();
+        waveform.clearSelection();
+      });
+
+      await loadProject(file);
+      toast.addToast("Project loaded successfully");
+      if (projectInputRef) {
+        projectInputRef.value = "";
+      }
+    } catch (err) {
+      toast.addToast(getErrorMessage(err, "Failed to load project"));
+      if (projectInputRef) {
+        projectInputRef.value = "";
+      }
+    }
   };
 
   const handleDragOver = (e: DragEvent) => {
@@ -281,6 +331,13 @@ export default function App() {
         onChange={handleFileImport}
         style={{ display: "none" }}
       />
+      <input
+        ref={projectInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleProjectLoad}
+        style={{ display: "none" }}
+      />
       <Show when={isDragging()}>
         <div class="fixed inset-0 z-[2000] bg-[var(--color-primary)]/20 border-4 border-dashed border-[var(--color-primary)] flex items-center justify-center pointer-events-none">
           <div class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-6 shadow-lg">
@@ -405,6 +462,8 @@ export default function App() {
           "Failed to delete"
         )}
         onHelpClick={() => setShowShortcuts(true)}
+        onSaveProject={handleSaveProject}
+        onLoadProject={handleLoadProject}
       />
       <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />

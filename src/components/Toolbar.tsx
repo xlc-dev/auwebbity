@@ -37,6 +37,8 @@ interface ToolbarProps {
   onPaste: () => void;
   onDelete: () => void;
   onHelpClick?: () => void;
+  onSaveProject?: () => void;
+  onLoadProject?: () => void;
 }
 
 export const Toolbar: Component<ToolbarProps> = (props) => {
@@ -45,11 +47,13 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
   const hasSelection = () => store.selection !== null;
   const hasClipboard = () => store.clipboard !== null;
 
-  const Separator = () => <div class="hidden md:block h-6 w-px bg-[var(--color-border)] flex-shrink-0"></div>;
+  const Separator = () => (
+    <div class="hidden md:block h-6 w-px bg-[var(--color-border)] flex-shrink-0"></div>
+  );
 
   return (
     <div class="fixed bottom-0 left-0 right-0 z-[100] p-1 sm:p-1.5 md:p-2 lg:p-3 pointer-events-none">
-      <div class="flex flex-row items-center justify-start sm:justify-center gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap max-w-[1200px] mx-auto p-1.5 sm:p-2 md:p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg pointer-events-auto backdrop-blur-[10px] shadow-lg">
+      <div class="flex flex-row items-center justify-start sm:justify-center gap-1 sm:gap-1.5 md:gap-2 overflow-x-auto overflow-y-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap max-w-[1200px] mx-auto p-1.5 sm:p-2 md:p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg pointer-events-auto backdrop-blur-[10px] shadow-lg">
         <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
           <Button
             icon={
@@ -214,6 +218,53 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
         <Separator />
 
         <div class="flex items-center gap-1 sm:gap-1.5 md:gap-2 flex-shrink-0">
+          <Show when={props.onSaveProject}>
+            <Button
+              icon={
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                  <polyline points="17 21 17 13 7 13 7 21" />
+                  <polyline points="7 3 7 8 15 8" />
+                </svg>
+              }
+              label="Save Project"
+              onClick={props.onSaveProject!}
+              variant="secondary"
+              disabled={store.tracks.length === 0 || !store.projectName?.trim()}
+            />
+          </Show>
+          <Show when={props.onLoadProject}>
+            <Button
+              icon={
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+              }
+              label="Load Project"
+              onClick={props.onLoadProject!}
+              variant="secondary"
+            />
+          </Show>
           <ExportMenu
             onExport={props.onExport}
             disabled={!getCurrentTrack()}

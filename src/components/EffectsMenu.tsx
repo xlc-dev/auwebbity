@@ -1,4 +1,5 @@
 import { Component, createSignal, Show, onMount, onCleanup, createEffect, For } from "solid-js";
+import { Portal } from "solid-js/web";
 import { useAudioStore } from "../stores/audioStore";
 import { Tooltip } from "./Tooltip";
 
@@ -35,6 +36,8 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   const [amplifyValue, setAmplifyValue] = createSignal("1.5");
   const [scope, setScope] = createSignal<EffectScope>("track");
   let containerRef: HTMLDivElement | undefined;
+  let buttonRef: HTMLButtonElement | undefined;
+  const [menuPosition, setMenuPosition] = createSignal({ top: 0, right: 0 });
 
   const hasTrack = () => getCurrentTrack() !== null;
   const hasSelection = () => store.selection !== null;
@@ -52,6 +55,15 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     setShowAmplifyDialog(false);
   };
 
+  const updateMenuPosition = () => {
+    if (!buttonRef) return;
+    const rect = buttonRef.getBoundingClientRect();
+    setMenuPosition({
+      top: rect.top - 4,
+      right: window.innerWidth - rect.right,
+    });
+  };
+
   const handleClickOutside = (e: MouseEvent) => {
     if (containerRef && !containerRef.contains(e.target as Node)) {
       closeAll();
@@ -67,6 +79,20 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
       }
     }
   };
+
+  createEffect(() => {
+    if (isOpen()) {
+      updateMenuPosition();
+      const handleScroll = () => updateMenuPosition();
+      const handleResize = () => updateMenuPosition();
+      window.addEventListener("scroll", handleScroll, true);
+      window.addEventListener("resize", handleResize);
+      return () => {
+        window.removeEventListener("scroll", handleScroll, true);
+        window.removeEventListener("resize", handleResize);
+      };
+    }
+  });
 
   onMount(() => {
     document.addEventListener("mousedown", handleClickOutside);
@@ -172,12 +198,20 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     <div ref={containerRef} class="relative inline-block">
       <Tooltip label="Effects">
         <button
+          ref={buttonRef}
           type="button"
           class="flex items-center gap-1.5 sm:gap-2 py-1 sm:py-1.5 px-2 sm:px-2.5 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md text-[var(--color-text)] text-[0.75rem] sm:text-[0.8125rem] font-medium cursor-pointer transition-all duration-200 font-inherit hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:translate-y-0 focus:outline-none focus:border-[var(--color-primary)] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 w-8 h-8 sm:w-9 sm:h-9 p-0 justify-center"
           classList={{
             "border-[var(--color-primary)]": isOpen(),
           }}
-          onClick={() => !props.disabled && setIsOpen(!isOpen())}
+          onClick={() => {
+            if (!props.disabled) {
+              setIsOpen(!isOpen());
+              if (!isOpen()) {
+                requestAnimationFrame(updateMenuPosition);
+              }
+            }
+          }}
           disabled={props.disabled || !hasTrack()}
           aria-haspopup="menu"
           aria-expanded={isOpen()}
@@ -200,125 +234,136 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
         </button>
       </Tooltip>
       <Show when={isOpen()}>
-        <div class="absolute bottom-[calc(100%+4px)] right-0 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md overflow-hidden z-[1000] w-[calc(100vw-3rem)] sm:w-auto sm:min-w-[220px] max-w-[280px] sm:max-w-none animate-[dropdownSlideDown_0.15s_ease-out]">
-          <Show when={!showAmplifyDialog()}>
-            <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-              <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
-                Apply to:
-              </div>
-              <div class="flex flex-col gap-1">
-                <For each={scopeOptions}>
-                  {(option) => {
-                    const isSelected = () => scope() === option.value;
-                    const isDisabled = () => option.disabled?.() ?? false;
-                    const label = () => option.getLabel?.() ?? option.label;
+        <Portal>
+          <div
+            class="fixed bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md overflow-hidden z-[1000] w-[calc(100vw-3rem)] sm:w-auto sm:min-w-[220px] max-w-[280px] sm:max-w-none"
+            style={{
+              top: `${menuPosition().top}px`,
+              right: `${menuPosition().right}px`,
+              animation: "dropdownSlideUp 0.15s ease-out forwards",
+            }}
+          >
+            <Show when={!showAmplifyDialog()}>
+              <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
+                  Apply to:
+                </div>
+                <div class="flex flex-col gap-1">
+                  <For each={scopeOptions}>
+                    {(option) => {
+                      const isSelected = () => scope() === option.value;
+                      const isDisabled = () => option.disabled?.() ?? false;
+                      const label = () => option.getLabel?.() ?? option.label;
 
-                    return (
-                      <button
-                        type="button"
-                        class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                        classList={{
-                          "bg-[var(--color-primary)]/20 text-[var(--color-primary)]": isSelected(),
-                          "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":
-                            !isSelected(),
-                        }}
-                        onClick={() => setScope(option.value)}
-                        disabled={isDisabled()}
-                      >
-                        <div
-                          class="w-3 h-3 rounded border-2 flex-shrink-0"
+                      return (
+                        <button
+                          type="button"
+                          class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           classList={{
-                            "bg-[var(--color-primary)] border-[var(--color-primary)]": isSelected(),
-                            "border-[var(--color-border)]": !isSelected(),
+                            "bg-[var(--color-primary)]/20 text-[var(--color-primary)]":
+                              isSelected(),
+                            "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":
+                              !isSelected(),
                           }}
+                          onClick={() => setScope(option.value)}
+                          disabled={isDisabled()}
                         >
-                          {isSelected() && (
-                            <svg
-                              class="w-full h-full text-white"
-                              fill="currentColor"
-                              viewBox="0 0 12 12"
-                            >
-                              <path
-                                d="M10 3L4.5 8.5 2 6"
-                                stroke="currentColor"
-                                stroke-width="2"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                fill="none"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        <span>{label()}</span>
-                      </button>
-                    );
-                  }}
-                </For>
+                          <div
+                            class="w-3 h-3 rounded border-2 flex-shrink-0"
+                            classList={{
+                              "bg-[var(--color-primary)] border-[var(--color-primary)]":
+                                isSelected(),
+                              "border-[var(--color-border)]": !isSelected(),
+                            }}
+                          >
+                            {isSelected() && (
+                              <svg
+                                class="w-full h-full text-white"
+                                fill="currentColor"
+                                viewBox="0 0 12 12"
+                              >
+                                <path
+                                  d="M10 3L4.5 8.5 2 6"
+                                  stroke="currentColor"
+                                  stroke-width="2"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  fill="none"
+                                />
+                              </svg>
+                            )}
+                          </div>
+                          <span>{label()}</span>
+                        </button>
+                      );
+                    }}
+                  </For>
+                </div>
               </div>
-            </div>
-            <For each={effectItems}>
-              {(item) => {
-                const isDisabled = () => item.disabled?.() ?? false;
-                return (
+              <For each={effectItems}>
+                {(item) => {
+                  const isDisabled = () => item.disabled?.() ?? false;
+                  return (
+                    <button
+                      type="button"
+                      class={menuButtonClass}
+                      onClick={item.onClick}
+                      disabled={isDisabled()}
+                    >
+                      {item.label}
+                      {item.requiresSelection && !hasSelection() && (
+                        <span class="ml-1.5 text-[0.625rem] text-[var(--color-text-secondary)]">
+                          (requires selection)
+                        </span>
+                      )}
+                    </button>
+                  );
+                }}
+              </For>
+            </Show>
+            <Show when={showAmplifyDialog()}>
+              <div class="p-3 border-b border-[var(--color-border)]">
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Gain Multiplier
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="10"
+                  step="0.1"
+                  value={amplifyValue()}
+                  onInput={(e) => setAmplifyValue(e.currentTarget.value)}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                  autofocus
+                />
+                <div class="mt-1.5 text-[0.75rem] text-[var(--color-text-secondary)]">
+                  {amplifyPercent()}
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply amplify effect to ${getScopeLabel().toLowerCase()}`}>
                   <button
                     type="button"
-                    class={menuButtonClass}
-                    onClick={item.onClick}
-                    disabled={isDisabled()}
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleAmplify}
                   >
-                    {item.label}
-                    {item.requiresSelection && !hasSelection() && (
-                      <span class="ml-1.5 text-[0.625rem] text-[var(--color-text-secondary)]">
-                        (requires selection)
-                      </span>
-                    )}
+                    Apply
                   </button>
-                );
-              }}
-            </For>
-          </Show>
-          <Show when={showAmplifyDialog()}>
-            <div class="p-3 border-b border-[var(--color-border)]">
-              <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
-                Applying to: <span class="font-medium">{getScopeLabel()}</span>
-              </div>
-              <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
-                Gain Multiplier
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                max="10"
-                step="0.1"
-                value={amplifyValue()}
-                onInput={(e) => setAmplifyValue(e.currentTarget.value)}
-                class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
-                autofocus
-              />
-              <div class="mt-1.5 text-[0.75rem] text-[var(--color-text-secondary)]">
-                {amplifyPercent()}
-              </div>
-            </div>
-            <div class="flex gap-2 p-2">
-              <Tooltip label={`Apply amplify effect to ${getScopeLabel().toLowerCase()}`}>
+                </Tooltip>
                 <button
                   type="button"
-                  class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
-                  onClick={handleAmplify}
+                  class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => setShowAmplifyDialog(false)}
                 >
-                  Apply
+                  Cancel
                 </button>
-              </Tooltip>
-              <button
-                type="button"
-                class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
-                onClick={() => setShowAmplifyDialog(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          </Show>
-        </div>
+              </div>
+            </Show>
+          </div>
+        </Portal>
       </Show>
     </div>
   );

@@ -1,6 +1,7 @@
 import { createStore } from "solid-js/store";
 import { audioOperations } from "../utils/audioOperations";
 import { cloneAudioBuffer } from "../utils/audioBufferUtils";
+import { exportProject, importProject, downloadProject } from "../utils/projectUtils";
 
 export interface AudioTrack {
   id: string;
@@ -666,6 +667,41 @@ export const useAudioStore = () => {
     scheduleSave();
   };
 
+  const saveProject = async (): Promise<void> => {
+    const projectName = audioStore.projectName.trim();
+    if (!projectName) {
+      throw new Error("Please enter a project name before saving");
+    }
+    const blob = await exportProject(audioStore);
+    downloadProject(blob, projectName);
+  };
+
+  const loadProject = async (file: File): Promise<void> => {
+    revokeTrackUrls(audioStore.tracks);
+    const loadedState = await importProject(file);
+
+    setAudioStore({
+      tracks: loadedState.tracks,
+      currentTrackId: loadedState.currentTrackId,
+      selection: null,
+      zoom: loadedState.zoom,
+      isPlaying: false,
+      currentTime: 0,
+      clipboard: null,
+      undoStackLength: 0,
+      redoStackLength: 0,
+      repeatRegion: loadedState.repeatRegion,
+      projectName: loadedState.projectName,
+    });
+
+    undoStack.forEach((snapshot) => revokeTrackUrls(snapshot.tracks));
+    redoStack.forEach((snapshot) => revokeTrackUrls(snapshot.tracks));
+    undoStack = [];
+    redoStack = [];
+
+    scheduleSave();
+  };
+
   return {
     store: audioStore,
     setAudioStore: updateAudioStore,
@@ -689,5 +725,7 @@ export const useAudioStore = () => {
     deleteTrack,
     reorderTracks,
     duplicateTrack,
+    saveProject,
+    loadProject,
   };
 };
