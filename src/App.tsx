@@ -409,6 +409,7 @@ export default function App() {
           () => audioOps.handleDelete(waveformRef),
           "Failed to delete"
         )}
+        onHelpClick={() => setShowShortcuts(true)}
       />
       <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
       <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />
