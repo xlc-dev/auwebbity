@@ -12,7 +12,8 @@ export interface ProjectFile {
     volume: number;
     muted: boolean;
     soloed: boolean;
-    audioData: string; // Base64 encoded WAV data
+    waveformRenderer: "bars" | "line" | "spectrogram";
+    audioData: string;
   }>;
   currentTrackId: string | null;
   zoom: number;
@@ -46,6 +47,7 @@ export async function exportProject(state: AudioState): Promise<Blob> {
         volume: track.volume,
         muted: track.muted,
         soloed: track.soloed,
+        waveformRenderer: track.waveformRenderer,
         audioData,
       };
     })
@@ -109,6 +111,7 @@ export async function importProject(
         volume: trackData.volume ?? 1,
         muted: trackData.muted ?? false,
         soloed: trackData.soloed ?? false,
+        waveformRenderer: trackData.waveformRenderer || "bars",
       };
     })
   );

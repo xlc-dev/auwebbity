@@ -1,7 +1,8 @@
 import { onCleanup, createEffect } from "solid-js";
 import WaveSurfer from "wavesurfer.js";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js";
-import { useAudioStore } from "../stores/audioStore";
+import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
+import { useAudioStore, type WaveformRenderer } from "../stores/audioStore";
 import { isAbortError } from "../utils/errorUtils";
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
@@ -68,6 +69,7 @@ export const useWaveform = (
     onTrackSelect?: (trackId: string) => void;
     backgroundColor?: string | null;
     onSelectionCreated?: (trackId: string) => void;
+    renderer?: WaveformRenderer | (() => WaveformRenderer);
   }
 ) => {
   const autoLoad = options?.autoLoad !== false;
@@ -78,6 +80,7 @@ export const useWaveform = (
   const onSelectionCreated = options?.onSelectionCreated;
   let wavesurfer: WaveSurfer | null = null;
   let regionsPlugin: RegionsPlugin | null = null;
+  let spectrogramPlugin: any | null = null;
   let dragSelectionCleanup: (() => void) | null = null;
   let isSeeking = false;
   let seekingTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -89,8 +92,61 @@ export const useWaveform = (
   let currentAudioUrl: string | null = null;
   let volumeUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastEffectiveVolume: number | null = null;
+  const getRenderer = (): WaveformRenderer => {
+    const renderer = options?.renderer;
+    return typeof renderer === "function" ? renderer() : renderer ?? "bars";
+  };
+  let currentRenderer: WaveformRenderer = getRenderer();
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
+
+  const createWaveform = (
+    container: HTMLDivElement,
+    rendererType: WaveformRenderer
+  ): { instance: WaveSurfer; regionsPlugin: RegionsPlugin } => {
+    const colors = getWaveformColors(backgroundColor);
+
+    const baseOptions: any = {
+      container,
+      waveColor: colors.waveColor,
+      progressColor: colors.progressColor,
+      cursorColor: "transparent",
+      cursorWidth: 0,
+      height: 200,
+      normalize: true,
+      interact: false,
+      dragToSeek: false,
+    };
+
+    if (rendererType === "line") {
+      baseOptions.renderer = "line";
+      baseOptions.lineWidth = 1;
+    } else if (rendererType === "spectrogram") {
+      baseOptions.renderer = "bars";
+      baseOptions.barWidth = 2;
+      baseOptions.barRadius = 1;
+    } else {
+      baseOptions.barWidth = 2;
+      baseOptions.barRadius = 1;
+    }
+
+    const instance = WaveSurfer.create(baseOptions);
+
+    const newRegionsPlugin = instance.registerPlugin(RegionsPlugin.create());
+    regionsPlugin = newRegionsPlugin;
+
+    if (rendererType === "spectrogram") {
+      spectrogramPlugin = instance.registerPlugin(
+        SpectrogramPlugin.create({
+          labels: true,
+          height: 200,
+          splitChannels: false,
+        })
+      );
+    }
+
+    return { instance, regionsPlugin: newRegionsPlugin };
+  };
 
   createEffect(() => {
     const container = containerRef();
@@ -98,23 +154,11 @@ export const useWaveform = (
     if (isInitialized || wavesurfer !== null) return;
     isInitialized = true;
 
-    const colors = getWaveformColors(backgroundColor);
-
-    wavesurfer = WaveSurfer.create({
-      container,
-      waveColor: colors.waveColor,
-      progressColor: colors.progressColor,
-      cursorColor: "transparent",
-      cursorWidth: 0,
-      barWidth: 2,
-      barRadius: 1,
-      height: 200,
-      normalize: true,
-      interact: false,
-      dragToSeek: false,
-    });
-
-    regionsPlugin = wavesurfer.registerPlugin(RegionsPlugin.create());
+    const renderer = getRenderer();
+    const waveformResult = createWaveform(container, renderer);
+    wavesurfer = waveformResult.instance;
+    regionsPlugin = waveformResult.regionsPlugin;
+    currentRenderer = renderer;
 
     wavesurfer.on("ready", () => {
       isAudioLoaded = true;
@@ -326,119 +370,367 @@ export const useWaveform = (
       }, 100);
     });
 
-    regionsPlugin.on("region-initialized", (region) => {
-      if (!region) return;
-      if (trackId && onSelectionCreated) {
-        onSelectionCreated(trackId);
-      }
-      const existingRegions = regionsPlugin?.getRegions() || [];
-      existingRegions.forEach((r) => {
-        if (r.id !== region.id) {
-          r.remove();
+    if (regionsPlugin) {
+      regionsPlugin.on("region-initialized", (region) => {
+        if (!region) return;
+        if (trackId && onSelectionCreated) {
+          onSelectionCreated(trackId);
         }
+        const existingRegions = regionsPlugin?.getRegions() || [];
+        existingRegions.forEach((r) => {
+          if (r.id !== region.id) {
+            r.remove();
+          }
+        });
       });
-    });
 
-    regionsPlugin.on("region-created", (region) => {
-      if (!region) return;
-      if (!isCurrent && trackId && onTrackSelect) {
-        onTrackSelect(trackId);
-      }
-      if (trackId && onSelectionCreated) {
-        onSelectionCreated(trackId);
-      }
-      originalRegionWidth = region.end - region.start;
-      region.setOptions({
-        drag: true,
-        resize: false,
-      });
-      setSelection({
-        start: region.start,
-        end: region.end,
-      });
-    });
-
-    regionsPlugin.on("region-clicked", (region) => {
-      if (!region) return;
-      if (!isCurrent && trackId && onTrackSelect) {
-        onTrackSelect(trackId);
-      }
-      if (trackId && onSelectionCreated) {
-        onSelectionCreated(trackId);
-      }
-      originalRegionWidth = region.end - region.start;
-      setSelection({
-        start: region.start,
-        end: region.end,
-      });
-    });
-
-    regionsPlugin.on("region-update", (region) => {
-      if (originalRegionWidth === null && region) {
+      regionsPlugin.on("region-created", (region) => {
+        if (!region) return;
+        if (!isCurrent && trackId && onTrackSelect) {
+          onTrackSelect(trackId);
+        }
+        if (trackId && onSelectionCreated) {
+          onSelectionCreated(trackId);
+        }
         originalRegionWidth = region.end - region.start;
-      }
-    });
-
-    regionsPlugin.on("region-updated", (region) => {
-      if (!region) return;
-      if (!isCurrent && trackId && onTrackSelect) {
-        onTrackSelect(trackId);
-      }
-      const duration = wavesurfer?.getDuration() || 0;
-      if (duration <= 0) {
+        region.setOptions({
+          drag: true,
+          resize: false,
+        });
         setSelection({
           start: region.start,
           end: region.end,
         });
-        return;
-      }
-
-      if (originalRegionWidth === null) {
-        originalRegionWidth = region.end - region.start;
-      }
-
-      const regionWidth = originalRegionWidth;
-      const currentWidth = region.end - region.start;
-      const widthChanged = Math.abs(currentWidth - regionWidth) > 0.001;
-
-      let desiredStart = region.start;
-      let clampedStart = Math.max(0, Math.min(desiredStart, duration - regionWidth));
-      let clampedEnd = clampedStart + regionWidth;
-
-      if (clampedEnd > duration) {
-        clampedEnd = duration;
-        clampedStart = Math.max(0, duration - regionWidth);
-      }
-
-      if (clampedStart < 0) {
-        clampedStart = 0;
-        clampedEnd = Math.min(duration, regionWidth);
-      }
-
-      const now = performance.now();
-      const needsClamping =
-        widthChanged ||
-        Math.abs(region.start - clampedStart) > 0.001 ||
-        Math.abs(region.end - clampedEnd) > 0.001;
-
-      if (needsClamping) {
-        if (widthChanged || now - lastClampTime > 16) {
-          lastClampTime = now;
-          region.setOptions({ start: clampedStart, end: clampedEnd });
-        }
-      }
-
-      setSelection({
-        start: clampedStart,
-        end: clampedEnd,
       });
-    });
 
-    regionsPlugin.on("region-removed", () => {
-      setSelection(null);
-    });
+      regionsPlugin.on("region-clicked", (region) => {
+        if (!region) return;
+        if (!isCurrent && trackId && onTrackSelect) {
+          onTrackSelect(trackId);
+        }
+        if (trackId && onSelectionCreated) {
+          onSelectionCreated(trackId);
+        }
+        originalRegionWidth = region.end - region.start;
+        setSelection({
+          start: region.start,
+          end: region.end,
+        });
+      });
+
+      regionsPlugin.on("region-update", (region) => {
+        if (originalRegionWidth === null && region) {
+          originalRegionWidth = region.end - region.start;
+        }
+      });
+
+      regionsPlugin.on("region-updated", (region) => {
+        if (!region) return;
+        if (!isCurrent && trackId && onTrackSelect) {
+          onTrackSelect(trackId);
+        }
+        const duration = wavesurfer?.getDuration() || 0;
+        if (duration <= 0) {
+          setSelection({
+            start: region.start,
+            end: region.end,
+          });
+          return;
+        }
+
+        if (originalRegionWidth === null) {
+          originalRegionWidth = region.end - region.start;
+        }
+
+        const regionWidth = originalRegionWidth;
+        const currentWidth = region.end - region.start;
+        const widthChanged = Math.abs(currentWidth - regionWidth) > 0.001;
+
+        let desiredStart = region.start;
+        let clampedStart = Math.max(0, Math.min(desiredStart, duration - regionWidth));
+        let clampedEnd = clampedStart + regionWidth;
+
+        if (clampedEnd > duration) {
+          clampedEnd = duration;
+          clampedStart = Math.max(0, duration - regionWidth);
+        }
+
+        if (clampedStart < 0) {
+          clampedStart = 0;
+          clampedEnd = Math.min(duration, regionWidth);
+        }
+
+        const now = performance.now();
+        const needsClamping =
+          widthChanged ||
+          Math.abs(region.start - clampedStart) > 0.001 ||
+          Math.abs(region.end - clampedEnd) > 0.001;
+
+        if (needsClamping) {
+          if (widthChanged || now - lastClampTime > 16) {
+            lastClampTime = now;
+            region.setOptions({ start: clampedStart, end: clampedEnd });
+          }
+        }
+
+        setSelection({
+          start: clampedStart,
+          end: clampedEnd,
+        });
+      });
+
+      regionsPlugin.on("region-removed", () => {
+        setSelection(null);
+      });
+    }
 
     return () => {};
+  });
+
+  createEffect(() => {
+    const renderer = getRenderer();
+    if (!wavesurfer || !isAudioLoaded) return;
+    if (renderer === currentRenderer) return;
+
+    const container = containerRef();
+    if (!container) return;
+
+    const wasPlaying = wavesurfer.isPlaying();
+    const currentTime = wavesurfer.getCurrentTime();
+    const currentUrl = currentAudioUrl;
+    const currentSelection = store.selection;
+
+    try {
+      if (dragSelectionCleanup) {
+        dragSelectionCleanup();
+        dragSelectionCleanup = null;
+      }
+      if (spectrogramPlugin) {
+        wavesurfer.unregisterPlugin(spectrogramPlugin);
+        spectrogramPlugin = null;
+      }
+      wavesurfer.destroy();
+    } catch {}
+
+    isInitialized = false;
+    isAudioLoaded = false;
+    wavesurfer = null;
+    regionsPlugin = null;
+
+    isInitialized = true;
+    currentRenderer = renderer;
+    const waveformResult = createWaveform(container, renderer);
+    wavesurfer = waveformResult.instance;
+    const newRegionsPlugin = waveformResult.regionsPlugin;
+    regionsPlugin = newRegionsPlugin;
+
+    wavesurfer.on("ready", () => {
+      isAudioLoaded = true;
+      if (newRegionsPlugin) {
+        newRegionsPlugin.clearRegions();
+        setSelection(null);
+        dragSelectionCleanup = newRegionsPlugin.enableDragSelection({
+          color: "rgba(74, 158, 255, 0.3)",
+          drag: true,
+          resize: false,
+        });
+      }
+    });
+
+    wavesurfer.on("play", () => {
+      if (isCurrent) {
+        setPlaying(true);
+      }
+    });
+
+    wavesurfer.on("pause", () => {
+      if (isCurrent) {
+        setPlaying(false);
+        try {
+          const time = wavesurfer?.getCurrentTime() || 0;
+          setCurrentTime(time);
+        } catch {
+          setCurrentTime(0);
+        }
+      }
+    });
+
+    wavesurfer.on("timeupdate", (time) => {
+      if (isSeeking) return;
+      const isWaveformPlaying = wavesurfer?.isPlaying() ?? false;
+      if (!isWaveformPlaying && !store.isPlaying) return;
+      try {
+        const maxDur =
+          store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+        if (maxDur > 0) {
+          const clampedTime = Math.min(time, maxDur);
+          const timeToUse = isWaveformPlaying
+            ? Math.min(Math.max(clampedTime, store.currentTime), maxDur)
+            : Math.min(store.currentTime, maxDur);
+
+          if (store.repeatRegion && isWaveformPlaying) {
+            const { start, end } = store.repeatRegion;
+            const isWithinRepeatRegion = timeToUse >= start - 0.01 && timeToUse <= end + 0.01;
+            if (isWithinRepeatRegion && timeToUse >= end - 0.01) {
+              setCurrentTime(start);
+              const duration = wavesurfer?.getDuration() || 0;
+              if (duration > 0) {
+                const seekPosition = start / duration;
+                try {
+                  wavesurfer?.seekTo(seekPosition);
+                } catch {}
+              }
+              return;
+            }
+          }
+
+          if (timeToUse >= maxDur - 0.01) {
+            setCurrentTime(maxDur);
+            if (isCurrent) {
+              setPlaying(false);
+            }
+          } else {
+            const finalTime = isWaveformPlaying
+              ? Math.min(clampedTime, maxDur)
+              : Math.min(timeToUse, maxDur);
+            setCurrentTime(finalTime);
+          }
+        } else {
+          setCurrentTime(time);
+        }
+      } catch {
+        setCurrentTime(time);
+      }
+    });
+
+    wavesurfer.on("seeking", (time) => {
+      if (seekingTimeoutId) {
+        clearTimeout(seekingTimeoutId);
+      }
+      isSeeking = true;
+      setCurrentTime(time);
+      seekingTimeoutId = setTimeout(() => {
+        isSeeking = false;
+        seekingTimeoutId = null;
+      }, 100);
+    });
+
+    if (newRegionsPlugin) {
+      newRegionsPlugin.on("region-created", (region: any) => {
+        if (!region) return;
+        if (!isCurrent && trackId && onTrackSelect) {
+          onTrackSelect(trackId);
+        }
+        if (trackId && onSelectionCreated) {
+          onSelectionCreated(trackId);
+        }
+        originalRegionWidth = region.end - region.start;
+        region.setOptions({
+          drag: true,
+          resize: false,
+        });
+        setSelection({
+          start: region.start,
+          end: region.end,
+        });
+      });
+
+      newRegionsPlugin.on("region-clicked", (region: any) => {
+        if (!region) return;
+        if (!isCurrent && trackId && onTrackSelect) {
+          onTrackSelect(trackId);
+        }
+        if (trackId && onSelectionCreated) {
+          onSelectionCreated(trackId);
+        }
+        originalRegionWidth = region.end - region.start;
+        setSelection({
+          start: region.start,
+          end: region.end,
+        });
+      });
+
+      newRegionsPlugin.on("region-updated", (region: any) => {
+        if (!region) return;
+        if (!isCurrent && trackId && onTrackSelect) {
+          onTrackSelect(trackId);
+        }
+        const duration = wavesurfer?.getDuration() || 0;
+        if (duration <= 0) {
+          setSelection({
+            start: region.start,
+            end: region.end,
+          });
+          return;
+        }
+
+        if (originalRegionWidth === null) {
+          originalRegionWidth = region.end - region.start;
+        }
+
+        const regionWidth = originalRegionWidth;
+        const currentWidth = region.end - region.start;
+        const widthChanged = Math.abs(currentWidth - regionWidth) > 0.001;
+
+        let desiredStart = region.start;
+        let clampedStart = Math.max(0, Math.min(desiredStart, duration - regionWidth));
+        let clampedEnd = clampedStart + regionWidth;
+
+        if (clampedEnd > duration) {
+          clampedEnd = duration;
+          clampedStart = Math.max(0, duration - regionWidth);
+        }
+
+        if (clampedStart < 0) {
+          clampedStart = 0;
+          clampedEnd = Math.min(duration, regionWidth);
+        }
+
+        const now = performance.now();
+        const needsClamping =
+          widthChanged ||
+          Math.abs(region.start - clampedStart) > 0.001 ||
+          Math.abs(region.end - clampedEnd) > 0.001;
+
+        if (needsClamping) {
+          if (widthChanged || now - lastClampTime > 16) {
+            lastClampTime = now;
+            region.setOptions({ start: clampedStart, end: clampedEnd });
+          }
+        }
+
+        setSelection({
+          start: clampedStart,
+          end: clampedEnd,
+        });
+      });
+
+      newRegionsPlugin.on("region-removed", () => {
+        setSelection(null);
+      });
+    }
+
+    if (currentUrl) {
+      loadAudio(currentUrl).then(() => {
+        if (wasPlaying) {
+          wavesurfer?.play();
+        } else if (currentTime > 0) {
+          const duration = wavesurfer?.getDuration() || 0;
+          if (duration > 0) {
+            wavesurfer?.seekTo(currentTime / duration);
+          }
+        }
+        if (currentSelection && newRegionsPlugin) {
+          newRegionsPlugin.addRegion({
+            start: currentSelection.start,
+            end: currentSelection.end,
+            color: "rgba(74, 158, 255, 0.3)",
+            drag: true,
+            resize: false,
+          });
+        }
+      });
+    }
   });
 
   onCleanup(() => {
@@ -452,6 +744,10 @@ export const useWaveform = (
     }
     if (wavesurfer) {
       try {
+        if (spectrogramPlugin) {
+          wavesurfer.unregisterPlugin(spectrogramPlugin);
+          spectrogramPlugin = null;
+        }
         wavesurfer.destroy();
       } catch {}
       wavesurfer = null;

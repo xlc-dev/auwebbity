@@ -188,130 +188,130 @@ export const ExportMenu: Component<ExportMenuProps> = (props) => {
               animation: "dropdownSlideUp 0.15s ease-out forwards",
             }}
           >
-          <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-            <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
-              Format:
-            </div>
-            <div class="flex flex-col gap-1">
-              <For each={formatOptions}>
-                {(option) => {
-                  const isSelected = () => format() === option.value;
+            <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+              <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
+                Format:
+              </div>
+              <div class="flex flex-col gap-1">
+                <For each={formatOptions}>
+                  {(option) => {
+                    const isSelected = () => format() === option.value;
 
-                  return (
-                    <button
-                      type="button"
-                      class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer"
-                      classList={{
-                        "bg-[var(--color-primary)]/20 text-[var(--color-primary)]": isSelected(),
-                        "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":
-                          !isSelected(),
-                      }}
-                      onClick={() => {
-                        setFormat(option.value);
-                        updateQualityForFormat(option.value);
-                      }}
-                    >
-                      <div
-                        class="w-3 h-3 rounded border-2 flex-shrink-0"
+                    return (
+                      <button
+                        type="button"
+                        class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer"
                         classList={{
-                          "bg-[var(--color-primary)] border-[var(--color-primary)]": isSelected(),
-                          "border-[var(--color-border)]": !isSelected(),
+                          "bg-[var(--color-primary)]/20 text-[var(--color-primary)]": isSelected(),
+                          "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":
+                            !isSelected(),
+                        }}
+                        onClick={() => {
+                          setFormat(option.value);
+                          updateQualityForFormat(option.value);
                         }}
                       >
-                        {isSelected() && (
-                          <svg
-                            class="w-full h-full text-white"
-                            fill="currentColor"
-                            viewBox="0 0 12 12"
-                          >
-                            <path
-                              d="M10 3L4.5 8.5 2 6"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              fill="none"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <span>{option.label}</span>
-                    </button>
-                  );
-                }}
-              </For>
-            </div>
-          </div>
-          <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
-            <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
-              Quality:
-            </div>
-            <div class="flex flex-col gap-1">
-              <For each={qualityOptions()}>
-                {(option) => {
-                  const isSelected = () => quality() === option.value;
-
-                  return (
-                    <button
-                      type="button"
-                      class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer"
-                      classList={{
-                        "bg-[var(--color-primary)]/20 text-[var(--color-primary)]": isSelected(),
-                        "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":
-                          !isSelected(),
-                      }}
-                      onClick={() => setQuality(option.value)}
-                    >
-                      <div
-                        class="w-3 h-3 rounded border-2 flex-shrink-0"
-                        classList={{
-                          "bg-[var(--color-primary)] border-[var(--color-primary)]": isSelected(),
-                          "border-[var(--color-border)]": !isSelected(),
-                        }}
-                      >
-                        {isSelected() && (
-                          <svg
-                            class="w-full h-full text-white"
-                            fill="currentColor"
-                            viewBox="0 0 12 12"
-                          >
-                            <path
-                              d="M10 3L4.5 8.5 2 6"
-                              stroke="currentColor"
-                              stroke-width="2"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              fill="none"
-                            />
-                          </svg>
-                        )}
-                      </div>
-                      <div class="flex flex-col">
+                        <div
+                          class="w-3 h-3 rounded border-2 flex-shrink-0"
+                          classList={{
+                            "bg-[var(--color-primary)] border-[var(--color-primary)]": isSelected(),
+                            "border-[var(--color-border)]": !isSelected(),
+                          }}
+                        >
+                          {isSelected() && (
+                            <svg
+                              class="w-full h-full text-white"
+                              fill="currentColor"
+                              viewBox="0 0 12 12"
+                            >
+                              <path
+                                d="M10 3L4.5 8.5 2 6"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                fill="none"
+                              />
+                            </svg>
+                          )}
+                        </div>
                         <span>{option.label}</span>
-                        {option.description && (
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)]">
-                            {option.description}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                }}
-              </For>
+                      </button>
+                    );
+                  }}
+                </For>
+              </div>
             </div>
-          </div>
-          <div class="p-2 flex justify-end">
-            <Tooltip label={`Export as ${format().toUpperCase()} with selected quality`}>
-              <button
-                type="button"
-                class="py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleExport}
-                disabled={!hasProjectName()}
-              >
-                Export
-              </button>
-            </Tooltip>
-          </div>
+            <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+              <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
+                Quality:
+              </div>
+              <div class="flex flex-col gap-1">
+                <For each={qualityOptions()}>
+                  {(option) => {
+                    const isSelected = () => quality() === option.value;
+
+                    return (
+                      <button
+                        type="button"
+                        class="flex items-center gap-2 px-2 py-1.5 rounded text-[0.8125rem] text-left transition-colors cursor-pointer"
+                        classList={{
+                          "bg-[var(--color-primary)]/20 text-[var(--color-primary)]": isSelected(),
+                          "bg-transparent text-[var(--color-text)] hover:bg-[var(--color-hover)]":
+                            !isSelected(),
+                        }}
+                        onClick={() => setQuality(option.value)}
+                      >
+                        <div
+                          class="w-3 h-3 rounded border-2 flex-shrink-0"
+                          classList={{
+                            "bg-[var(--color-primary)] border-[var(--color-primary)]": isSelected(),
+                            "border-[var(--color-border)]": !isSelected(),
+                          }}
+                        >
+                          {isSelected() && (
+                            <svg
+                              class="w-full h-full text-white"
+                              fill="currentColor"
+                              viewBox="0 0 12 12"
+                            >
+                              <path
+                                d="M10 3L4.5 8.5 2 6"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                fill="none"
+                              />
+                            </svg>
+                          )}
+                        </div>
+                        <div class="flex flex-col">
+                          <span>{option.label}</span>
+                          {option.description && (
+                            <span class="text-[0.625rem] text-[var(--color-text-secondary)]">
+                              {option.description}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  }}
+                </For>
+              </div>
+            </div>
+            <div class="p-2 flex justify-end">
+              <Tooltip label={`Export as ${format().toUpperCase()} with selected quality`}>
+                <button
+                  type="button"
+                  class="py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleExport}
+                  disabled={!hasProjectName()}
+                >
+                  Export
+                </button>
+              </Tooltip>
+            </div>
           </div>
         </Portal>
       </Show>

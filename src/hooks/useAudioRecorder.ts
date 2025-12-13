@@ -83,6 +83,7 @@ export const useAudioRecorder = () => {
             volume: 1,
             muted: false,
             soloed: false,
+            waveformRenderer: "bars",
           });
 
           stopMediaStream(stream);

@@ -20,6 +20,7 @@ export const useFileImport = () => {
       volume: 1,
       muted: false,
       soloed: false,
+      waveformRenderer: "bars",
     });
   };
 

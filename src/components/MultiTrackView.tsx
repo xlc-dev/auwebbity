@@ -8,7 +8,7 @@ import {
   createEffect,
   createMemo,
 } from "solid-js";
-import { useAudioStore } from "../stores/audioStore";
+import { useAudioStore, type WaveformRenderer } from "../stores/audioStore";
 import { useWaveform } from "../hooks/useWaveform";
 import { TimeRuler } from "./TimeRuler";
 import { Tooltip } from "./Tooltip";
@@ -47,8 +47,37 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   const [editName, setEditName] = createSignal(props.track.name);
   const [showColorPicker, setShowColorPicker] = createSignal(false);
   const [isDraggingVolume, setIsDraggingVolume] = createSignal(false);
-  const { store } = useAudioStore();
+  const { store, setAudioStore } = useAudioStore();
   const [containerWidth, setContainerWidth] = createSignal(0);
+
+  const cycleWaveformRenderer = () => {
+    const renderers: WaveformRenderer[] = ["bars", "line", "spectrogram"];
+    const currentRenderer: WaveformRenderer =
+      props.track.waveformRenderer || "bars";
+    const currentIndex = renderers.indexOf(currentRenderer);
+    const nextIndex = (currentIndex + 1) % renderers.length;
+    const nextRenderer: WaveformRenderer = renderers[nextIndex]!;
+    setAudioStore("tracks", (tracks) =>
+      tracks.map((t) =>
+        t.id === props.track.id
+          ? { ...t, waveformRenderer: nextRenderer }
+          : t
+      )
+    );
+  };
+
+  const getWaveformRendererLabel = (renderer: WaveformRenderer): string => {
+    switch (renderer) {
+      case "bars":
+        return "Bars";
+      case "line":
+        return "Line";
+      case "spectrogram":
+        return "Spectrogram";
+      default:
+        return "Bars";
+    }
+  };
 
   const waveform = useWaveform(() => containerRef, {
     autoLoad: false,
@@ -57,6 +86,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     onTrackSelect: props.onSelect,
     backgroundColor: props.track.backgroundColor,
     onSelectionCreated: props.onSelectionCreated,
+    renderer: () => props.track.waveformRenderer || "bars",
   });
 
   const trackWidth = createMemo(() => {
@@ -401,6 +431,71 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                   </div>
                 </div>
               </Show>
+            </div>
+            <div class="relative flex items-center">
+              <Tooltip
+                label={`Waveform: ${getWaveformRendererLabel(
+                  (props.track.waveformRenderer || "bars") as WaveformRenderer
+                )} (Click to cycle)`}
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    cycleWaveformRenderer();
+                  }}
+                  class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
+                  aria-label={`Waveform: ${getWaveformRendererLabel(
+                    (props.track.waveformRenderer || "bars") as WaveformRenderer
+                  )}`}
+                >
+                  <Show
+                    when={
+                      (props.track.waveformRenderer || "bars") === "spectrogram"
+                    }
+                    fallback={
+                      <Show
+                        when={(props.track.waveformRenderer || "bars") === "line"}
+                        fallback={
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                          >
+                            <path d="M2 12h20M4 8v8M8 4v16M12 6v12M16 8v8M20 10v4" />
+                          </svg>
+                        }
+                      >
+                        <svg
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="2"
+                        >
+                          <path d="M2 12h20M2 12c0-4 4-8 10-8s10 4 10 8M2 12c0 4 4 8 10 8s10-4 10-8" />
+                        </svg>
+                      </Show>
+                    }
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <rect x="2" y="2" width="20" height="20" rx="2" />
+                      <path d="M2 8h20M2 12h20M2 16h20" />
+                      <path d="M6 2v20M12 2v20M18 2v20" />
+                    </svg>
+                  </Show>
+                </button>
+              </Tooltip>
             </div>
             <Show when={props.canDelete}>
               <Tooltip label="Delete Track">

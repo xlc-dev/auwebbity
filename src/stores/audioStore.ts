@@ -10,15 +10,18 @@ export interface AudioTrack {
   audioUrl: string;
   duration: number;
   backgroundColor: string | null;
-  volume: number; // 0 to 1
+  volume: number;
   muted: boolean;
   soloed: boolean;
+  waveformRenderer: WaveformRenderer;
 }
 
 export interface Selection {
   start: number;
   end: number;
 }
+
+export type WaveformRenderer = "bars" | "line" | "spectrogram";
 
 export interface AudioState {
   tracks: AudioTrack[];
@@ -45,6 +48,7 @@ interface ProjectSnapshot {
     volume: number;
     muted: boolean;
     soloed: boolean;
+    waveformRenderer: WaveformRenderer;
   }>;
   currentTrackId: string | null;
 }
@@ -63,6 +67,7 @@ interface PersistedSnapshot {
     volume: number;
     muted: boolean;
     soloed: boolean;
+    waveformRenderer: WaveformRenderer;
     bufferId: string | null;
   }>;
   currentTrackId: string | null;
@@ -179,6 +184,7 @@ async function saveState(
               volume: track.volume,
               muted: track.muted,
               soloed: track.soloed,
+              waveformRenderer: track.waveformRenderer,
               bufferId,
             };
           })
@@ -256,6 +262,7 @@ async function loadState(): Promise<
         volume: track.volume ?? 1,
         muted: track.muted ?? false,
         soloed: track.soloed ?? false,
+        waveformRenderer: (track as any).waveformRenderer || "bars",
       }))
     );
 
@@ -286,6 +293,7 @@ async function loadState(): Promise<
             volume: track.volume,
             muted: track.muted,
             soloed: track.soloed,
+            waveformRenderer: track.waveformRenderer || "bars",
           };
         })
       );
@@ -521,6 +529,7 @@ export const useAudioStore = () => {
           volume: track.volume,
           muted: track.muted,
           soloed: track.soloed,
+          waveformRenderer: track.waveformRenderer,
         };
       })
     );
@@ -655,6 +664,7 @@ export const useAudioStore = () => {
       volume: track.volume,
       muted: track.muted,
       soloed: track.soloed,
+      waveformRenderer: track.waveformRenderer,
     };
 
     const trackIndex = audioStore.tracks.findIndex((t) => t.id === trackId);
