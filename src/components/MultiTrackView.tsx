@@ -258,7 +258,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
           "background-color": "var(--color-bg-elevated)",
         }}
       >
-        <div class="flex items-start justify-between gap-2 mb-1.5">
+        <div class="flex items-start justify-between gap-2 mb-1.5 w-full">
           <div class="flex items-start gap-2 flex-1 min-w-0">
             <div
               class="w-6 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing text-[var(--color-text)] hover:text-[var(--color-primary)] hover:bg-[var(--color-bg)] rounded flex-shrink-0 touch-none"
@@ -279,45 +279,64 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                 <circle cx="15" cy="19" r="2" />
               </svg>
             </div>
-            <Show
-              when={isEditing()}
-              fallback={
-                <div class="flex-1 min-w-0">
-                  <button onClick={() => props.onSelect()} class="w-full text-left pt-0.5">
-                    <div class="text-sm font-medium text-[var(--color-text)] truncate leading-tight">
-                      {props.track.name}
-                    </div>
-                  </button>
-                  <div class="text-xs text-[var(--color-text)] space-y-0.5 opacity-70 mt-1">
-                    <div>Duration: {formatTime(props.track.duration)}</div>
-                    <Show when={props.track.audioBuffer}>
-                      <div>Channels: {props.track.audioBuffer!.numberOfChannels}</div>
-                      <div>
-                        Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz
+            <div class="flex-1 min-w-0">
+              <Show
+                when={isEditing()}
+                fallback={
+                  <>
+                    <button onClick={() => props.onSelect()} class="w-full text-left pt-0.5">
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRenameStart(e);
+                        }}
+                        class="text-sm font-medium text-[var(--color-text)] truncate leading-tight cursor-text"
+                      >
+                        {props.track.name}
                       </div>
-                    </Show>
-                  </div>
+                    </button>
+                    <div class="text-xs text-[var(--color-text)] space-y-0.5 opacity-70 mt-1">
+                      <div>Duration: {formatTime(props.track.duration)}</div>
+                      <Show when={props.track.audioBuffer}>
+                        <div>Channels: {props.track.audioBuffer!.numberOfChannels}</div>
+                        <div>
+                          Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz
+                        </div>
+                      </Show>
+                    </div>
+                  </>
+                }
+              >
+                <input
+                  type="text"
+                  value={editName()}
+                  onInput={(e) => setEditName(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleRenameSubmit();
+                    } else if (e.key === "Escape") {
+                      handleRenameCancel();
+                    }
+                  }}
+                  onBlur={handleRenameSubmit}
+                  onClick={(e) => e.stopPropagation()}
+                  class="w-full max-w-full box-border px-2 py-1 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                  style="width: 100%; max-width: 100%;"
+                  autofocus
+                />
+                <div class="text-xs text-[var(--color-text)] space-y-0.5 opacity-70 mt-1">
+                  <div>Duration: {formatTime(props.track.duration)}</div>
+                  <Show when={props.track.audioBuffer}>
+                    <div>Channels: {props.track.audioBuffer!.numberOfChannels}</div>
+                    <div>
+                      Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz
+                    </div>
+                  </Show>
                 </div>
-              }
-            >
-              <input
-                type="text"
-                value={editName()}
-                onInput={(e) => setEditName(e.currentTarget.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleRenameSubmit();
-                  } else if (e.key === "Escape") {
-                    handleRenameCancel();
-                  }
-                }}
-                onBlur={handleRenameSubmit}
-                class="flex-1 px-2 py-1 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                autofocus
-              />
-            </Show>
+              </Show>
+            </div>
           </div>
-          <div class="grid grid-cols-2 gap-1 items-start">
+          <div class="grid grid-cols-2 gap-1 items-start flex-shrink-0">
             <div class="relative flex items-center">
               <Tooltip label="Set Track Color">
                 <button
@@ -328,22 +347,8 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                   class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
                   aria-label="Set Track Color"
                 >
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
-                    <line x1="7" y1="2" x2="7" y2="22" />
-                    <line x1="17" y1="2" x2="17" y2="22" />
-                    <line x1="2" y1="12" x2="22" y2="12" />
-                    <line x1="2" y1="7" x2="7" y2="7" />
-                    <line x1="2" y1="17" x2="7" y2="17" />
-                    <line x1="17" y1="17" x2="22" y2="17" />
-                    <line x1="17" y1="7" x2="22" y2="7" />
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 22q-2.05 0-3.875-.788t-3.187-2.15t-2.15-3.187T2 12q0-2.075.813-3.9t2.2-3.175T8.25 2.788T12.2 2q2 0 3.775.688t3.113 1.9t2.125 2.875T22 11.05q0 2.875-1.75 4.413T16 17h-1.85q-.225 0-.312.125t-.088.275q0 .3.375.863t.375 1.287q0 1.25-.687 1.85T12 22m-5.5-9q.65 0 1.075-.425T8 11.5t-.425-1.075T6.5 10t-1.075.425T5 11.5t.425 1.075T6.5 13m3-4q.65 0 1.075-.425T11 7.5t-.425-1.075T9.5 6t-1.075.425T8 7.5t.425 1.075T9.5 9m5 0q.65 0 1.075-.425T16 7.5t-.425-1.075T14.5 6t-1.075.425T13 7.5t.425 1.075T14.5 9m3 4q.65 0 1.075-.425T19 11.5t-.425-1.075T17.5 10t-1.075.425T16 11.5t.425 1.075T17.5 13M12 20q.225 0 .363-.125t.137-.325q0-.35-.375-.825T11.75 17.3q0-1.05.725-1.675T14.25 15H16q1.65 0 2.825-.962T20 11.05q0-3.025-2.312-5.038T12.2 4Q8.8 4 6.4 6.325T4 12q0 3.325 2.338 5.663T12 20" />
                   </svg>
                 </button>
               </Tooltip>
@@ -397,25 +402,6 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                 </div>
               </Show>
             </div>
-            <Tooltip label="Rename Track">
-              <button
-                onClick={handleRenameStart}
-                class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
-                aria-label="Rename Track"
-              >
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-              </button>
-            </Tooltip>
             <Show when={props.canDelete}>
               <Tooltip label="Delete Track">
                 <button
@@ -688,11 +674,11 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     setCurrentTrackId(trackId);
   };
 
-  const handleTrackDelete = (trackId: string) => {
+  const handleTrackDelete = async (trackId: string) => {
     if (store.tracks.length <= 1) {
       return;
     }
-    deleteTrack(trackId);
+    await deleteTrack(trackId);
   };
 
   const handleTrackRename = (trackId: string, name: string) => {
@@ -801,13 +787,13 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                     setDraggedTrackId(trackId);
                   };
 
-                  const handleDragEnd = () => {
+                  const handleDragEnd = async () => {
                     const draggedId = draggedTrackId();
                     const overIndex = dragOverIndex();
                     if (draggedId && overIndex !== null) {
                       const draggedIndex = store.tracks.findIndex((t) => t.id === draggedId);
                       if (draggedIndex !== -1 && draggedIndex !== overIndex) {
-                        reorderTracks(draggedIndex, overIndex);
+                        await reorderTracks(draggedIndex, overIndex);
                       }
                     }
                     setDraggedTrackId(null);
