@@ -30,6 +30,7 @@ export interface AudioState {
   undoStackLength: number;
   redoStackLength: number;
   repeatRegion: { start: number; end: number } | null;
+  projectName: string;
 }
 
 export interface HistoryState {
@@ -55,6 +56,7 @@ interface PersistedState {
   currentTrackId: string | null;
   undoStack?: PersistedHistoryState[];
   redoStack?: PersistedHistoryState[];
+  projectName?: string;
 }
 
 async function openDB(): Promise<IDBDatabase> {
@@ -145,6 +147,7 @@ async function saveState(
         backgroundColor: track.backgroundColor || null,
       })),
       currentTrackId: state.currentTrackId,
+      projectName: state.projectName,
       undoStack: await Promise.all(
         undoStack.map(async (historyState, index) => {
           const bufferId = `undo-${historyState.trackId}-${index}`;
@@ -269,6 +272,7 @@ async function loadState(): Promise<
       isPlaying: false,
       undoStack,
       redoStack,
+      projectName: persistedState.projectName || "",
     };
   } catch (error) {
     console.error("Failed to load state:", error);
@@ -299,6 +303,7 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
   undoStackLength: 0,
   redoStackLength: 0,
   repeatRegion: null,
+  projectName: "",
 });
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -366,6 +371,7 @@ export const initializeStore = async () => {
       undoStackLength: undoStack.length,
       redoStackLength: redoStack.length,
       repeatRegion: null,
+      projectName: savedState.projectName || "",
     });
   }
 };
@@ -444,6 +450,7 @@ export const useAudioStore = () => {
       undoStackLength: 0,
       redoStackLength: 0,
       repeatRegion: null,
+      projectName: "",
     });
   };
 

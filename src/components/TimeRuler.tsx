@@ -215,7 +215,7 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
   return (
     <div
-      class="relative w-full h-5 sm:h-6 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden"
+      class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden"
       classList={{
         "cursor-pointer": !selectingRepeatStart(),
         "cursor-crosshair": selectingRepeatStart(),

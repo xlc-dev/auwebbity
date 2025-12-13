@@ -72,6 +72,12 @@ export default function App() {
       return;
     }
 
+    const projectName = store.projectName.trim();
+    if (!projectName) {
+      toast.addToast("Please enter a project name");
+      return;
+    }
+
     setIsExporting(true);
     try {
       const { mixTracksWithVolume } = await import("./utils/audioBufferUtils");
@@ -92,7 +98,7 @@ export default function App() {
       }
 
       const format = exportFormat();
-      const filename = `recording_${formatDateForFilename()}.${format}`;
+      const filename = `${projectName}.${format}`;
       await audioOperations.exportAudio(mixedBuffer, format, filename);
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to export audio"));

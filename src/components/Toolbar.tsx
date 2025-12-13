@@ -42,16 +42,17 @@ interface ToolbarProps {
 
 export const Toolbar: Component<ToolbarProps> = (props) => {
   const { getCurrentTrack, store } = useAudioStore();
+  const hasProjectName = () => !!store.projectName?.trim();
 
   const hasSelection = () => store.selection !== null;
   const hasClipboard = () => store.clipboard !== null;
 
-  const Separator = () => <div class="h-6 w-px bg-[var(--color-border)]"></div>;
+  const Separator = () => <div class="hidden sm:block h-6 w-px bg-[var(--color-border)]"></div>;
 
   return (
-    <div class="fixed bottom-0 left-0 right-0 z-[100] p-3 pointer-events-none">
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-2 max-w-[1200px] mx-auto p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg pointer-events-auto backdrop-blur-[10px]">
-        <div class="flex items-center gap-2">
+    <div class="fixed bottom-0 left-0 right-0 z-[100] p-1.5 sm:p-2 md:p-3 pointer-events-none">
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 flex-wrap max-w-[1200px] mx-auto p-2 sm:p-3 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg pointer-events-auto backdrop-blur-[10px]">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <Button
             icon={
               <svg
@@ -98,7 +99,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -147,7 +148,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-2 flex-1 min-w-0 w-full sm:w-auto justify-center">
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0 w-full sm:w-auto justify-center">
           <Tooltip label={props.recorder.isRecording() ? "Stop Recording" : "Start Recording"}>
             <button
               onClick={props.onRecordClick}
@@ -179,7 +180,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             </button>
           </Tooltip>
           <Show when={props.recorder.isRecording()}>
-            <span class="text-[var(--color-recording)] text-sm font-medium tabular-nums">
+            <span class="text-[var(--color-recording)] text-xs sm:text-sm font-medium tabular-nums">
               {formatTime(props.recorder.recordingDuration())}
             </span>
           </Show>
@@ -194,13 +195,13 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <ZoomControls />
         </div>
 
         <Separator />
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <EffectsMenu
             onNormalize={props.onNormalize}
             onAmplify={props.onAmplify}
@@ -214,7 +215,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <Dropdown
             options={[
               { value: "wav", label: "WAV" },
@@ -239,7 +240,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             }
             label={props.isExporting ? "Exporting..." : "Export Audio"}
             onClick={props.onExport}
-            disabled={!getCurrentTrack() || props.isExporting}
+            disabled={!getCurrentTrack() || props.isExporting || !hasProjectName()}
             variant="secondary"
           />
           <Button
@@ -256,7 +257,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
 
         <Separator />
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

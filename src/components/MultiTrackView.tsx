@@ -518,7 +518,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
             onMouseDown={handleVolumeMouseDown}
           >
             <div
-              class="absolute bottom-0 left-0 right-0 bg-[var(--color-primary)]/30 transition-all"
+              class="absolute bottom-0 left-0 right-0 bg-[var(--color-primary)]/30 transition-all pointer-events-none"
               style={{
                 height: `${props.track.volume * 100}%`,
               }}
@@ -737,7 +737,16 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
       <Show when={store.tracks.length > 0}>
         <div class="w-full h-full bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg relative flex flex-col overflow-hidden">
           <div class="flex border-b border-[var(--color-border)] flex-shrink-0 relative">
-            <div class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0"></div>
+            <div class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 flex items-center px-2 py-1">
+              <input
+                type="text"
+                value={store.projectName}
+                onInput={(e) => setAudioStore("projectName", e.currentTarget.value)}
+                placeholder="Project Name (required)"
+                required
+                class="w-full px-1.5 py-0.5 text-xs bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)] placeholder:text-[var(--color-text-secondary)]"
+              />
+            </div>
             <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
               <TimeRuler
                 containerRef={mainContainerRef}
