@@ -257,13 +257,13 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
       <Show when={store.repeatRegion && repeatMarkerPositions()}>
         {(pos) => {
           const effWidth = effectiveWidth();
-          const startPos = Math.max(0, Math.min(pos().start - 6, effWidth - 1));
-          const endPos = Math.min(pos().end, effWidth - 1);
+          const startPos = Math.max(6, Math.min(pos().start, effWidth - 6));
+          const endPos = Math.max(6, Math.min(pos().end, effWidth - 6));
           return (
             <>
               <div
                 class="absolute top-0 w-0 h-0 border-r-[6px] border-r-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
-                style={{ left: `${startPos}px` }}
+                style={{ left: `${startPos - 6}px` }}
               />
               <div
                 class="absolute top-0 w-0 h-0 border-l-[6px] border-l-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"

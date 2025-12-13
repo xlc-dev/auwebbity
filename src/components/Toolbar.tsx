@@ -226,23 +226,40 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             onChange={(value) => props.setExportFormat(value as "wav" | "mp3" | "ogg")}
             disabled={props.isExporting || !getCurrentTrack()}
           />
-          <Button
-            icon={
-              props.isExporting ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-                </svg>
-              )
+          <Tooltip
+            label={
+              !hasProjectName()
+                ? "Enter a project name to export"
+                : props.isExporting
+                  ? "Exporting..."
+                  : "Export Audio"
             }
-            label={props.isExporting ? "Exporting..." : "Export Audio"}
-            onClick={props.onExport}
-            disabled={!getCurrentTrack() || props.isExporting || !hasProjectName()}
-            variant="secondary"
-          />
+          >
+            <button
+              onClick={props.onExport}
+              disabled={!getCurrentTrack() || props.isExporting || !hasProjectName()}
+              class="flex items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-[var(--color-text)] cursor-pointer transition-all duration-200 p-0 hover:bg-[var(--color-hover)] hover:border-[var(--color-border-hover)] hover:-translate-y-px active:bg-[var(--color-active)] active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[var(--color-bg-elevated)] disabled:hover:border-[var(--color-border)] disabled:hover:translate-y-0 w-8 h-8 sm:w-9 sm:h-9"
+              aria-label={
+                !hasProjectName()
+                  ? "Enter a project name to export"
+                  : props.isExporting
+                    ? "Exporting..."
+                    : "Export Audio"
+              }
+            >
+              <span class="flex items-center justify-center w-full h-full [&_svg]:text-inherit">
+                {props.isExporting ? (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+                  </svg>
+                )}
+              </span>
+            </button>
+          </Tooltip>
           <Button
             icon={
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

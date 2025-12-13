@@ -29,6 +29,7 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = createSignal(false);
   const [isExporting, setIsExporting] = createSignal(false);
   const [exportFormat, setExportFormat] = createSignal<"wav" | "mp3" | "ogg">("wav");
+  const [isDragging, setIsDragging] = createSignal(false);
   let fileInputRef: HTMLInputElement | undefined;
 
   const fileImport = useFileImport();
@@ -36,7 +37,14 @@ export default function App() {
 
   const handleFileImport = async (e: Event) => {
     try {
-      await fileImport.handleFileImport(e);
+      const files = (e.target as HTMLInputElement).files;
+      if (!files || files.length === 0) return;
+
+      if (files.length === 1) {
+        await fileImport.handleFileImport(e);
+      } else {
+        await fileImport.handleFiles(files);
+      }
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to import audio"));
     }
@@ -44,6 +52,38 @@ export default function App() {
 
   const handleImportClick = () => {
     fileInputRef?.click();
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer?.types.includes("Files")) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const relatedTarget = e.relatedTarget as Node | null;
+    if (!relatedTarget || !(e.currentTarget as Node).contains(relatedTarget)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = async (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    try {
+      await fileImport.handleFiles(files);
+    } catch (err) {
+      toast.addToast(getErrorMessage(err, "Failed to import audio"));
+    }
   };
 
   const handleOperation = async (operation: () => Promise<void>, errorMessage: string) => {
@@ -230,14 +270,45 @@ export default function App() {
   const isLoading = () => fileImport.isLoading() || audioOps.isLoading();
 
   return (
-    <main class="flex flex-col h-screen overflow-hidden bg-[var(--color-bg-secondary)] relative">
+    <main
+      class="flex flex-col h-screen overflow-hidden bg-[var(--color-bg-secondary)] relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <input
         ref={fileInputRef}
         type="file"
         accept="audio/*"
+        multiple
         onChange={handleFileImport}
         style={{ display: "none" }}
       />
+      <Show when={isDragging()}>
+        <div class="fixed inset-0 z-[2000] bg-[var(--color-primary)]/20 border-4 border-dashed border-[var(--color-primary)] flex items-center justify-center pointer-events-none">
+          <div class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-6 shadow-lg">
+            <div class="flex flex-col items-center gap-3">
+              <svg
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="text-[var(--color-primary)]"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <p class="text-[var(--color-text)] font-medium text-lg">Drop audio files here</p>
+              <p class="text-[var(--color-text-secondary)] text-sm">Release to add tracks</p>
+            </div>
+          </div>
+        </div>
+      </Show>
       <Show when={isInitialized()}>
         <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 border-t border-[var(--color-border)] pb-[70px] sm:pb-[80px] md:pb-[90px] lg:pb-[100px] p-2 sm:p-3 md:p-4">
           <MultiTrackView
