@@ -19,6 +19,7 @@ interface TrackRowProps {
   isCurrent: boolean;
   onSelect: () => void;
   onDelete: () => void;
+  onDuplicate?: () => void;
   onRename: (name: string) => void;
   onColorChange: (color: string | null) => void;
   onVolumeChange?: (volume: number) => void;
@@ -52,17 +53,12 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
 
   const cycleWaveformRenderer = () => {
     const renderers: WaveformRenderer[] = ["bars", "line", "spectrogram"];
-    const currentRenderer: WaveformRenderer =
-      props.track.waveformRenderer || "bars";
+    const currentRenderer: WaveformRenderer = props.track.waveformRenderer || "bars";
     const currentIndex = renderers.indexOf(currentRenderer);
     const nextIndex = (currentIndex + 1) % renderers.length;
     const nextRenderer: WaveformRenderer = renderers[nextIndex]!;
     setAudioStore("tracks", (tracks) =>
-      tracks.map((t) =>
-        t.id === props.track.id
-          ? { ...t, waveformRenderer: nextRenderer }
-          : t
-      )
+      tracks.map((t) => (t.id === props.track.id ? { ...t, waveformRenderer: nextRenderer } : t))
     );
   };
 
@@ -449,9 +445,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                   )}`}
                 >
                   <Show
-                    when={
-                      (props.track.waveformRenderer || "bars") === "spectrogram"
-                    }
+                    when={(props.track.waveformRenderer || "bars") === "spectrogram"}
                     fallback={
                       <Show
                         when={(props.track.waveformRenderer || "bars") === "line"}
@@ -497,6 +491,29 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                 </button>
               </Tooltip>
             </div>
+            <Tooltip label="Duplicate Track">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.onDuplicate?.();
+                }}
+                class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Duplicate Track"
+                disabled={!props.track.audioBuffer}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
+            </Tooltip>
             <Show when={props.canDelete}>
               <Tooltip label="Delete Track">
                 <button
@@ -652,7 +669,8 @@ interface MultiTrackViewProps {
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
-  const { store, setCurrentTrackId, deleteTrack, setAudioStore, reorderTracks } = useAudioStore();
+  const { store, setCurrentTrackId, deleteTrack, duplicateTrack, setAudioStore, reorderTracks } =
+    useAudioStore();
   const [mainContainerRef, setMainContainerRef] = createSignal<HTMLDivElement | undefined>(
     undefined
   );
@@ -774,6 +792,10 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
       return;
     }
     await deleteTrack(trackId);
+  };
+
+  const handleTrackDuplicate = async (trackId: string) => {
+    await duplicateTrack(trackId);
   };
 
   const handleTrackRename = (trackId: string, name: string) => {
@@ -946,6 +968,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                           isCurrent={track.id === store.currentTrackId}
                           onSelect={() => handleTrackSelect(track.id)}
                           onDelete={() => handleTrackDelete(track.id)}
+                          onDuplicate={() => handleTrackDuplicate(track.id)}
                           onRename={(name) => handleTrackRename(track.id, name)}
                           onColorChange={(color) => handleTrackColorChange(track.id, color)}
                           onVolumeChange={(volume) => handleTrackVolumeChange(track.id, volume)}

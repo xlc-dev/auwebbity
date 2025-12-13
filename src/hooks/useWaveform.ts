@@ -94,7 +94,7 @@ export const useWaveform = (
   let lastEffectiveVolume: number | null = null;
   const getRenderer = (): WaveformRenderer => {
     const renderer = options?.renderer;
-    return typeof renderer === "function" ? renderer() : renderer ?? "bars";
+    return typeof renderer === "function" ? renderer() : (renderer ?? "bars");
   };
   let currentRenderer: WaveformRenderer = getRenderer();
 
