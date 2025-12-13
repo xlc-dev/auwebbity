@@ -21,7 +21,16 @@ interface TrackRowProps {
   onDelete: () => void;
   onRename: (name: string) => void;
   onColorChange: (color: string | null) => void;
+  onVolumeChange?: (volume: number) => void;
+  onMuteToggle?: () => void;
+  onSoloToggle?: () => void;
   canDelete: boolean;
+  onDragStart?: (trackId: string) => void;
+  onDragEnd?: () => void;
+  onDragOver?: (trackId: string, index: number) => void;
+  isDragging?: boolean;
+  dragOverIndex?: number | null;
+  trackIndex?: number;
 }
 
 interface TrackRowPropsWithCallback extends TrackRowProps {
@@ -33,9 +42,11 @@ interface TrackRowPropsWithCallback extends TrackRowProps {
 const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   let containerRef: HTMLDivElement | undefined;
   let colorPickerRef: HTMLDivElement | undefined;
+  let volumeSliderRef: HTMLDivElement | undefined;
   const [isEditing, setIsEditing] = createSignal(false);
   const [editName, setEditName] = createSignal(props.track.name);
   const [showColorPicker, setShowColorPicker] = createSignal(false);
+  const [isDraggingVolume, setIsDraggingVolume] = createSignal(false);
   const { store } = useAudioStore();
   const [containerWidth, setContainerWidth] = createSignal(0);
 
@@ -120,6 +131,67 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     setEditName(props.track.name);
   };
 
+  const calculateVolumeFromY = (y: number, rect: DOMRect): number => {
+    if (!rect || rect.height === 0) return props.track.volume;
+    const relativeY = y - rect.top;
+    const clampedY = Math.max(0, Math.min(rect.height, relativeY));
+    const percentage = 1 - clampedY / rect.height;
+    return Math.max(0, Math.min(1, percentage));
+  };
+
+  const handleVolumeMouseDown = (e: MouseEvent) => {
+    if (!volumeSliderRef) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const target = e.target as HTMLElement;
+    const isThumb = target.hasAttribute("data-volume-thumb");
+
+    if (!isThumb) {
+      const rect = volumeSliderRef.getBoundingClientRect();
+      if (rect && rect.height > 0) {
+        const clickY = e.clientY;
+        const volume = calculateVolumeFromY(clickY, rect);
+        if (!isNaN(volume) && isFinite(volume) && volume >= 0 && volume <= 1) {
+          props.onVolumeChange?.(volume);
+        }
+      }
+    }
+
+    setIsDraggingVolume(true);
+  };
+
+  createEffect(() => {
+    if (!isDraggingVolume()) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!volumeSliderRef) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = volumeSliderRef.getBoundingClientRect();
+      if (rect && rect.height > 0) {
+        const volume = calculateVolumeFromY(e.clientY, rect);
+        if (!isNaN(volume) && isFinite(volume) && volume >= 0 && volume <= 1) {
+          props.onVolumeChange?.(volume);
+        }
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDraggingVolume(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove, { passive: false });
+    document.addEventListener("mouseup", handleMouseUp, { passive: false });
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  });
+
   onMount(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (showColorPicker() && colorPickerRef && !colorPickerRef.contains(e.target as Node)) {
@@ -135,176 +207,338 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     });
   });
 
+  const handleDragStart = (e: DragEvent) => {
+    e.dataTransfer!.effectAllowed = "move";
+    e.dataTransfer!.setData("text/plain", props.track.id);
+    props.onDragStart?.(props.track.id);
+  };
+
+  const handleDragEnd = () => {
+    props.onDragEnd?.();
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer!.dropEffect = "move";
+    if (props.trackIndex !== undefined) {
+      const trackRow = (e.currentTarget as HTMLElement).closest(
+        '[class*="flex"][class*="border-b"]'
+      ) as HTMLElement;
+      if (trackRow) {
+        const rect = trackRow.getBoundingClientRect();
+        const mouseY = e.clientY - rect.top;
+        const trackHeight = rect.height;
+        const midPoint = trackHeight / 2;
+        const targetIndex = mouseY < midPoint ? props.trackIndex : props.trackIndex + 1;
+        props.onDragOver?.(props.track.id, targetIndex);
+      } else if (props.trackIndex !== undefined) {
+        props.onDragOver?.(props.track.id, props.trackIndex);
+      }
+    }
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDragHandleMouseDown = (e: MouseEvent) => {
+    e.stopPropagation();
+  };
+
   return (
-    <div class="flex border-b border-[var(--color-border)] min-h-[150px] sm:min-h-[180px] md:min-h-[200px]">
+    <div
+      class="flex border-b border-[var(--color-border)] min-h-[150px] sm:min-h-[180px] md:min-h-[200px]"
+      classList={{
+        "opacity-50": props.isDragging,
+      }}
+    >
       <div
-        class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex flex-col p-2 sm:p-3 flex-shrink-0"
+        class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex flex-col p-2 sm:p-3 flex-shrink-0 relative"
         style={{
           "background-color": "var(--color-bg-elevated)",
         }}
       >
-        <div class="flex items-center justify-between gap-2 mb-2">
-          <Show
-            when={isEditing()}
-            fallback={
-              <>
-                <button onClick={() => props.onSelect()} class="flex-1 text-left min-w-0">
-                  <div class="text-sm font-medium text-[var(--color-text)] truncate">
-                    {props.track.name}
-                  </div>
-                  <div class="text-xs text-[var(--color-text)] mt-0.5 opacity-70">
-                    {formatTime(props.track.duration)}
-                  </div>
-                </button>
-                <div class="flex items-center gap-1">
-                  <div class="relative">
-                    <Tooltip label="Set Track Color">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setShowColorPicker(!showColorPicker());
-                        }}
-                        class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center"
-                        aria-label="Set Track Color"
-                      >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
-                          <line x1="7" y1="2" x2="7" y2="22" />
-                          <line x1="17" y1="2" x2="17" y2="22" />
-                          <line x1="2" y1="12" x2="22" y2="12" />
-                          <line x1="2" y1="7" x2="7" y2="7" />
-                          <line x1="2" y1="17" x2="7" y2="17" />
-                          <line x1="17" y1="17" x2="22" y2="17" />
-                          <line x1="17" y1="7" x2="22" y2="7" />
-                        </svg>
-                      </button>
-                    </Tooltip>
-                    <Show when={showColorPicker()}>
-                      <div
-                        ref={colorPickerRef}
-                        class="absolute top-full left-0 mt-1 z-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-2"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div class="flex items-center gap-2">
-                          {[
-                            { color: null, label: "None" },
-                            { color: "#22c55e", label: "Green" },
-                            { color: "#f59e0b", label: "Amber" },
-                            { color: "#ef4444", label: "Red" },
-                            { color: "#a855f7", label: "Purple" },
-                            { color: "#06b6d4", label: "Cyan" },
-                          ].map((item) => (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                props.onColorChange(item.color);
-                                setShowColorPicker(false);
-                              }}
-                              class="flex flex-col items-center gap-1.5 px-2 py-2 rounded hover:bg-[var(--color-bg)] transition-colors group"
-                              aria-label={item.label}
-                            >
-                              <div
-                                class="w-8 h-8 rounded border-2 transition-all cursor-pointer"
-                                classList={{
-                                  "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)] ring-offset-1 ring-offset-[var(--color-bg-elevated)]":
-                                    props.track.backgroundColor === item.color,
-                                  "border-[var(--color-border)] group-hover:border-[var(--color-primary)] group-hover:scale-110":
-                                    props.track.backgroundColor !== item.color,
-                                }}
-                                style={{
-                                  "background-color": item.color || "transparent",
-                                  "background-image": item.color
-                                    ? "none"
-                                    : "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
-                                  "background-size": "8px 8px",
-                                  "background-position": "0 0, 0 4px, 4px -4px, -4px 0px",
-                                }}
-                              />
-                              <span class="text-[0.625rem] text-[var(--color-text-secondary)] group-hover:text-[var(--color-text)] transition-colors">
-                                {item.label}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+          <div class="flex items-start gap-2 flex-1 min-w-0">
+            <div
+              class="w-6 h-6 flex items-center justify-center cursor-grab active:cursor-grabbing text-[var(--color-text)] hover:text-[var(--color-primary)] hover:bg-[var(--color-bg)] rounded flex-shrink-0 touch-none"
+              draggable={true}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onMouseDown={handleDragHandleMouseDown}
+              title="Drag to reorder tracks"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="9" cy="5" r="2" />
+                <circle cx="9" cy="12" r="2" />
+                <circle cx="9" cy="19" r="2" />
+                <circle cx="15" cy="5" r="2" />
+                <circle cx="15" cy="12" r="2" />
+                <circle cx="15" cy="19" r="2" />
+              </svg>
+            </div>
+            <Show
+              when={isEditing()}
+              fallback={
+                <div class="flex-1 min-w-0">
+                  <button onClick={() => props.onSelect()} class="w-full text-left pt-0.5">
+                    <div class="text-sm font-medium text-[var(--color-text)] truncate leading-tight">
+                      {props.track.name}
+                    </div>
+                  </button>
+                  <div class="text-xs text-[var(--color-text)] space-y-0.5 opacity-70 mt-1">
+                    <div>Duration: {formatTime(props.track.duration)}</div>
+                    <Show when={props.track.audioBuffer}>
+                      <div>Channels: {props.track.audioBuffer!.numberOfChannels}</div>
+                      <div>
+                        Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz
                       </div>
                     </Show>
                   </div>
-                  <Tooltip label="Rename Track">
-                    <button
-                      onClick={handleRenameStart}
-                      class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center"
-                      aria-label="Rename Track"
-                    >
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="2"
-                      >
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </button>
-                  </Tooltip>
-                  <Show when={props.canDelete}>
-                    <Tooltip label="Delete Track">
+                </div>
+              }
+            >
+              <input
+                type="text"
+                value={editName()}
+                onInput={(e) => setEditName(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleRenameSubmit();
+                  } else if (e.key === "Escape") {
+                    handleRenameCancel();
+                  }
+                }}
+                onBlur={handleRenameSubmit}
+                class="flex-1 px-2 py-1 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                autofocus
+              />
+            </Show>
+          </div>
+          <div class="grid grid-cols-2 gap-1 items-start">
+            <div class="relative flex items-center">
+              <Tooltip label="Set Track Color">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowColorPicker(!showColorPicker());
+                  }}
+                  class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
+                  aria-label="Set Track Color"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18" />
+                    <line x1="7" y1="2" x2="7" y2="22" />
+                    <line x1="17" y1="2" x2="17" y2="22" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <line x1="2" y1="7" x2="7" y2="7" />
+                    <line x1="2" y1="17" x2="7" y2="17" />
+                    <line x1="17" y1="17" x2="22" y2="17" />
+                    <line x1="17" y1="7" x2="22" y2="7" />
+                  </svg>
+                </button>
+              </Tooltip>
+              <Show when={showColorPicker()}>
+                <div
+                  ref={colorPickerRef}
+                  class="absolute top-full left-0 mt-1 z-50 bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-2"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div class="flex items-center gap-2">
+                    {[
+                      { color: null, label: "None" },
+                      { color: "#22c55e", label: "Green" },
+                      { color: "#f59e0b", label: "Amber" },
+                      { color: "#ef4444", label: "Red" },
+                      { color: "#a855f7", label: "Purple" },
+                      { color: "#06b6d4", label: "Cyan" },
+                    ].map((item) => (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          props.onDelete();
+                          props.onColorChange(item.color);
+                          setShowColorPicker(false);
                         }}
-                        class="p-1 rounded hover:bg-[var(--color-danger)]/20 text-[var(--color-text)] hover:text-[var(--color-danger)] transition-colors flex items-center justify-center"
-                        aria-label="Delete Track"
+                        class="flex flex-col items-center gap-1.5 px-2 py-2 rounded hover:bg-[var(--color-bg)] transition-colors group"
+                        aria-label={item.label}
                       >
-                        <svg
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="2"
-                        >
-                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
+                        <div
+                          class="w-8 h-8 rounded border-2 transition-all cursor-pointer"
+                          classList={{
+                            "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)] ring-offset-1 ring-offset-[var(--color-bg-elevated)]":
+                              props.track.backgroundColor === item.color,
+                            "border-[var(--color-border)] group-hover:border-[var(--color-primary)] group-hover:scale-110":
+                              props.track.backgroundColor !== item.color,
+                          }}
+                          style={{
+                            "background-color": item.color || "transparent",
+                            "background-image": item.color
+                              ? "none"
+                              : "linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)",
+                            "background-size": "8px 8px",
+                            "background-position": "0 0, 0 4px, 4px -4px, -4px 0px",
+                          }}
+                        />
+                        <span class="text-[0.625rem] text-[var(--color-text-secondary)] group-hover:text-[var(--color-text)] transition-colors">
+                          {item.label}
+                        </span>
                       </button>
-                    </Tooltip>
-                  </Show>
+                    ))}
+                  </div>
                 </div>
-              </>
-            }
-          >
-            <input
-              type="text"
-              value={editName()}
-              onInput={(e) => setEditName(e.currentTarget.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleRenameSubmit();
-                } else if (e.key === "Escape") {
-                  handleRenameCancel();
-                }
-              }}
-              onBlur={handleRenameSubmit}
-              class="flex-1 px-2 py-1 text-sm bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-              autofocus
-            />
-          </Show>
+              </Show>
+            </div>
+            <Tooltip label="Rename Track">
+              <button
+                onClick={handleRenameStart}
+                class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
+                aria-label="Rename Track"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                </svg>
+              </button>
+            </Tooltip>
+            <Show when={props.canDelete}>
+              <Tooltip label="Delete Track">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onDelete();
+                  }}
+                  class="p-1 rounded hover:bg-[var(--color-danger)]/20 text-[var(--color-text)] hover:text-[var(--color-danger)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
+                  aria-label="Delete Track"
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
+              </Tooltip>
+            </Show>
+            <Tooltip label={props.track.muted ? "Unmute" : "Mute"}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.onMuteToggle?.();
+                }}
+                class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
+                classList={{
+                  "text-[var(--color-danger)]": props.track.muted,
+                }}
+                aria-label={props.track.muted ? "Unmute" : "Mute"}
+              >
+                <Show
+                  when={props.track.muted}
+                  fallback={
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
+                      <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+                    </svg>
+                  }
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                    <line x1="23" y1="9" x2="17" y2="15" />
+                    <line x1="17" y1="9" x2="23" y2="15" />
+                  </svg>
+                </Show>
+              </button>
+            </Tooltip>
+            <Tooltip label={props.track.soloed ? "Unsolo" : "Solo"}>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  props.onSoloToggle?.();
+                }}
+                class="p-1 rounded hover:bg-[var(--color-bg)] text-[var(--color-text)] transition-colors flex items-center justify-center cursor-pointer w-full aspect-square"
+                classList={{
+                  "text-[var(--color-primary)]": props.track.soloed,
+                }}
+                aria-label={props.track.soloed ? "Unsolo" : "Solo"}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                  <Show when={props.track.soloed}>
+                    <circle cx="18" cy="12" r="3" fill="currentColor" />
+                  </Show>
+                </svg>
+              </button>
+            </Tooltip>
+          </div>
         </div>
-        <div class="text-xs text-[var(--color-text)] space-y-1 opacity-70">
-          <div>Duration: {formatTime(props.track.duration)}</div>
-          <Show when={props.track.audioBuffer}>
-            <div>Channels: {props.track.audioBuffer!.numberOfChannels}</div>
-            <div>Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz</div>
-          </Show>
+        <div class="absolute bottom-2 right-2 flex flex-col items-center gap-1 z-10">
+          <div
+            ref={volumeSliderRef}
+            class="relative w-4 h-20 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
+            onMouseDown={handleVolumeMouseDown}
+          >
+            <div
+              class="absolute bottom-0 left-0 right-0 bg-[var(--color-primary)]/30 transition-all"
+              style={{
+                height: `${props.track.volume * 100}%`,
+              }}
+            />
+            <div
+              data-volume-thumb
+              class="absolute left-1/2 -translate-x-1/2 w-5 h-2.5 bg-[var(--color-border)] border border-[var(--color-border-hover)] rounded cursor-grab active:cursor-grabbing transition-all hover:bg-[var(--color-border-hover)] hover:border-[var(--color-primary)] pointer-events-auto"
+              style={{
+                bottom: `calc(${props.track.volume * 100}% - 5px)`,
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsDraggingVolume(true);
+              }}
+            />
+          </div>
+          <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
+            {Math.round(props.track.volume * 100)}
+          </span>
         </div>
       </div>
       <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
@@ -337,13 +571,15 @@ interface MultiTrackViewProps {
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
-  const { store, setCurrentTrackId, deleteTrack, setAudioStore } = useAudioStore();
+  const { store, setCurrentTrackId, deleteTrack, setAudioStore, reorderTracks } = useAudioStore();
   const [mainContainerRef, setMainContainerRef] = createSignal<HTMLDivElement | undefined>(
     undefined
   );
   const [tracksContainerRef, setTracksContainerRef] = createSignal<HTMLDivElement | undefined>(
     undefined
   );
+  const [draggedTrackId, setDraggedTrackId] = createSignal<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = createSignal<number | null>(null);
 
   const handleContainerRef = (el: HTMLDivElement) => {
     if (!mainContainerRef()) {
@@ -469,6 +705,33 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     );
   };
 
+  const handleTrackVolumeChange = (trackId: string, volume: number) => {
+    if (isNaN(volume) || !isFinite(volume)) return;
+    const clampedVolume = Math.max(0, Math.min(1, volume));
+    setAudioStore("tracks", (tracks) =>
+      tracks.map((t) => (t.id === trackId ? { ...t, volume: clampedVolume } : t))
+    );
+  };
+
+  const handleTrackMuteToggle = (trackId: string) => {
+    setAudioStore("tracks", (tracks) =>
+      tracks.map((t) => (t.id === trackId ? { ...t, muted: !t.muted } : t))
+    );
+  };
+
+  const handleTrackSoloToggle = (trackId: string) => {
+    setAudioStore("tracks", (tracks) => {
+      const track = tracks.find((t) => t.id === trackId);
+      if (!track) return tracks;
+      const newSoloed = !track.soloed;
+
+      return tracks.map((t) => ({
+        ...t,
+        soloed: t.id === trackId ? newSoloed : newSoloed ? false : t.soloed,
+      }));
+    });
+  };
+
   return (
     <div class="w-full h-full relative flex flex-col overflow-hidden">
       <Show when={store.tracks.length > 0}>
@@ -520,20 +783,95 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                 />
               </Show>
               <For each={store.tracks}>
-                {(track) => (
-                  <TrackRow
-                    track={track}
-                    isCurrent={track.id === store.currentTrackId}
-                    onSelect={() => handleTrackSelect(track.id)}
-                    onDelete={() => handleTrackDelete(track.id)}
-                    onRename={(name) => handleTrackRename(track.id, name)}
-                    onColorChange={(color) => handleTrackColorChange(track.id, color)}
-                    canDelete={store.tracks.length > 1}
-                    onWaveformReady={props.onWaveformReady}
-                    onContainerRef={handleContainerRef}
-                    onSelectionCreated={props.onSelectionCreated}
-                  />
-                )}
+                {(track, index) => {
+                  const handleDragStart = (trackId: string) => {
+                    setDraggedTrackId(trackId);
+                  };
+
+                  const handleDragEnd = () => {
+                    const draggedId = draggedTrackId();
+                    const overIndex = dragOverIndex();
+                    if (draggedId && overIndex !== null) {
+                      const draggedIndex = store.tracks.findIndex((t) => t.id === draggedId);
+                      if (draggedIndex !== -1 && draggedIndex !== overIndex) {
+                        reorderTracks(draggedIndex, overIndex);
+                      }
+                    }
+                    setDraggedTrackId(null);
+                    setDragOverIndex(null);
+                  };
+
+                  const handleDragOver = (trackId: string, targetIndex: number) => {
+                    const draggedId = draggedTrackId();
+                    if (draggedId && draggedId !== trackId) {
+                      const draggedIndex = store.tracks.findIndex((t) => t.id === draggedId);
+                      if (draggedIndex !== -1) {
+                        let finalIndex = targetIndex;
+                        if (targetIndex > draggedIndex) {
+                          finalIndex = targetIndex - 1;
+                        }
+                        setDragOverIndex(Math.max(0, Math.min(store.tracks.length, finalIndex)));
+                      }
+                    }
+                  };
+
+                  const handleContainerDragOver = (e: DragEvent) => {
+                    e.preventDefault();
+                    e.dataTransfer!.dropEffect = "move";
+                    const currentIndex = index();
+                    const draggedId = draggedTrackId();
+                    if (draggedId && draggedId !== track.id) {
+                      const container = e.currentTarget as HTMLElement;
+                      const rect = container.getBoundingClientRect();
+                      const mouseY = e.clientY - rect.top;
+                      const trackHeight = rect.height;
+                      const midPoint = trackHeight / 2;
+                      const targetIndex = mouseY < midPoint ? currentIndex : currentIndex + 1;
+                      handleDragOver(track.id, targetIndex);
+                    }
+                  };
+
+                  const currentIndex = index();
+                  const isDragged = draggedTrackId() === track.id;
+                  const dropIndex = dragOverIndex();
+
+                  return (
+                    <>
+                      <Show when={dropIndex === currentIndex && !isDragged}>
+                        <div class="h-1 bg-[var(--color-primary)] border-y border-[var(--color-primary)]" />
+                      </Show>
+                      <div
+                        onDragOver={handleContainerDragOver}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          handleDragEnd();
+                        }}
+                      >
+                        <TrackRow
+                          track={track}
+                          isCurrent={track.id === store.currentTrackId}
+                          onSelect={() => handleTrackSelect(track.id)}
+                          onDelete={() => handleTrackDelete(track.id)}
+                          onRename={(name) => handleTrackRename(track.id, name)}
+                          onColorChange={(color) => handleTrackColorChange(track.id, color)}
+                          onVolumeChange={(volume) => handleTrackVolumeChange(track.id, volume)}
+                          onMuteToggle={() => handleTrackMuteToggle(track.id)}
+                          onSoloToggle={() => handleTrackSoloToggle(track.id)}
+                          canDelete={store.tracks.length > 1}
+                          onWaveformReady={props.onWaveformReady}
+                          onContainerRef={handleContainerRef}
+                          onSelectionCreated={props.onSelectionCreated}
+                          onDragStart={handleDragStart}
+                          onDragEnd={handleDragEnd}
+                          onDragOver={handleDragOver}
+                          isDragging={isDragged}
+                          dragOverIndex={dropIndex}
+                          trackIndex={currentIndex}
+                        />
+                      </div>
+                    </>
+                  );
+                }}
               </For>
             </div>
           </div>

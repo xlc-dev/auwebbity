@@ -40,3 +40,78 @@ export function mergeAudioBuffers(
 
   return newBuffer;
 }
+
+export function mixTracksWithVolume(
+  tracks: Array<{
+    audioBuffer: AudioBuffer | null;
+    volume: number;
+    muted: boolean;
+    soloed: boolean;
+  }>,
+  sampleRate?: number
+): AudioBuffer | null {
+  const validTracks = tracks.filter((t) => t.audioBuffer !== null);
+  if (validTracks.length === 0) return null;
+
+  const hasSoloedTracks = validTracks.some((t) => t.soloed);
+  const tracksToMix = hasSoloedTracks
+    ? validTracks.filter((t) => t.soloed && !t.muted)
+    : validTracks.filter((t) => !t.muted);
+
+  if (tracksToMix.length === 0) {
+    const firstTrack = validTracks[0];
+    if (!firstTrack?.audioBuffer) return null;
+    const sr = sampleRate ?? firstTrack.audioBuffer.sampleRate;
+    const audioContext = new AudioContext();
+    return audioContext.createBuffer(2, Math.floor(sr * 0.1), sr);
+  }
+
+  const firstTrack = tracksToMix[0]?.audioBuffer;
+  if (!firstTrack) return null;
+  const sr = sampleRate ?? firstTrack.sampleRate;
+  const maxDuration = Math.max(...tracksToMix.map((t) => t.audioBuffer!.duration));
+  const maxLength = Math.floor(maxDuration * sr);
+  const maxChannels = Math.max(...tracksToMix.map((t) => t.audioBuffer!.numberOfChannels));
+
+  const audioContext = new AudioContext();
+  const mixedBuffer = audioContext.createBuffer(maxChannels, maxLength, sr);
+
+  for (const track of tracksToMix) {
+    const buffer = track.audioBuffer!;
+    const volume = track.volume;
+    const trackChannels = buffer.numberOfChannels;
+    const trackSampleRate = buffer.sampleRate;
+    const trackDuration = buffer.duration;
+    const trackLength = Math.floor(Math.min(trackDuration, maxDuration) * sr);
+
+    for (let channel = 0; channel < maxChannels; channel++) {
+      const mixedData = mixedBuffer.getChannelData(channel);
+      const sourceChannel = channel < trackChannels ? channel : trackChannels - 1;
+      const sourceData = buffer.getChannelData(sourceChannel);
+
+      if (trackSampleRate === sr) {
+        const sourceLength = Math.min(sourceData.length, trackLength);
+        for (let i = 0; i < sourceLength; i++) {
+          mixedData[i] = (mixedData[i] ?? 0) + (sourceData[i] ?? 0) * volume;
+        }
+      } else {
+        const ratio = trackSampleRate / sr;
+        for (let i = 0; i < trackLength; i++) {
+          const sourceIndex = Math.floor(i * ratio);
+          if (sourceIndex < sourceData.length) {
+            mixedData[i] = (mixedData[i] ?? 0) + (sourceData[sourceIndex] ?? 0) * volume;
+          }
+        }
+      }
+    }
+  }
+
+  for (let channel = 0; channel < maxChannels; channel++) {
+    const mixedData = mixedBuffer.getChannelData(channel);
+    for (let i = 0; i < maxLength; i++) {
+      mixedData[i] = Math.max(-1.0, Math.min(1.0, mixedData[i] ?? 0));
+    }
+  }
+
+  return mixedBuffer;
+}

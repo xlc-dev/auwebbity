@@ -9,6 +9,9 @@ export interface AudioTrack {
   audioUrl: string;
   duration: number;
   backgroundColor: string | null;
+  volume: number; // 0 to 1
+  muted: boolean;
+  soloed: boolean;
 }
 
 export interface Selection {
@@ -219,6 +222,9 @@ async function loadState(): Promise<
         ...track,
         audioBuffer: await loadAudioBuffer(track.id),
         backgroundColor: track.backgroundColor || null,
+        volume: track.volume ?? 1,
+        muted: track.muted ?? false,
+        soloed: track.soloed ?? false,
       }))
     );
 
@@ -568,6 +574,18 @@ export const useAudioStore = () => {
     scheduleSave();
   };
 
+  const reorderTracks = (fromIndex: number, toIndex: number) => {
+    setAudioStore("tracks", (tracks) => {
+      const newTracks = [...tracks];
+      const [movedTrack] = newTracks.splice(fromIndex, 1);
+      if (movedTrack) {
+        newTracks.splice(toIndex, 0, movedTrack);
+      }
+      return newTracks;
+    });
+    scheduleSave();
+  };
+
   return {
     store: audioStore,
     setAudioStore: updateAudioStore,
@@ -589,5 +607,6 @@ export const useAudioStore = () => {
     canRedo,
     setCurrentTrackId,
     deleteTrack,
+    reorderTracks,
   };
 };

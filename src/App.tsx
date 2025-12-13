@@ -17,8 +17,7 @@ import { formatDateForFilename } from "./utils/dateUtils";
 import { getErrorMessage } from "./utils/errorUtils";
 
 export default function App() {
-  const { store, getCurrentTrack, resetStore, undo, redo, canUndo, canRedo, setRepeatRegion } =
-    useAudioStore();
+  const { store, resetStore, undo, redo, canUndo, canRedo, setRepeatRegion } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
   const [waveformMap, setWaveformMap] = createSignal<Map<string, ReturnType<typeof useWaveform>>>(
@@ -68,17 +67,33 @@ export default function App() {
   };
 
   const handleExport = async () => {
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer) {
-      toast.addToast("No audio track to export");
+    if (store.tracks.length === 0) {
+      toast.addToast("No audio tracks to export");
       return;
     }
 
     setIsExporting(true);
     try {
+      const { mixTracksWithVolume } = await import("./utils/audioBufferUtils");
+      const sampleRate = store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
+      const mixedBuffer = mixTracksWithVolume(
+        store.tracks.map((t) => ({
+          audioBuffer: t.audioBuffer,
+          volume: t.volume,
+          muted: t.muted,
+          soloed: t.soloed,
+        })),
+        sampleRate
+      );
+
+      if (!mixedBuffer) {
+        toast.addToast("No audio to export");
+        return;
+      }
+
       const format = exportFormat();
       const filename = `recording_${formatDateForFilename()}.${format}`;
-      await audioOperations.exportAudio(currentTrack.audioBuffer, format, filename);
+      await audioOperations.exportAudio(mixedBuffer, format, filename);
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to export audio"));
     } finally {
@@ -165,8 +180,19 @@ export default function App() {
 
   const playAllTracks = () => {
     const map = waveformMap();
-    map.forEach((waveform) => {
-      waveform.play();
+    const hasSoloedTracks = store.tracks.some((t) => t.soloed);
+
+    map.forEach((waveform, trackId) => {
+      const track = store.tracks.find((t) => t.id === trackId);
+      if (!track) return;
+
+      const shouldPlay = hasSoloedTracks ? track.soloed : !track.muted;
+
+      if (shouldPlay) {
+        waveform.play();
+      } else {
+        waveform.pause();
+      }
     });
   };
 

@@ -87,6 +87,8 @@ export const useWaveform = (
   let currentLoadAbortController: AbortController | null = null;
   let isAudioLoaded = false;
   let currentAudioUrl: string | null = null;
+  let volumeUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
+  let lastEffectiveVolume: number | null = null;
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
 
@@ -139,6 +141,35 @@ export const useWaveform = (
           wavesurfer.seekTo(progress);
         } catch (err) {
           console.warn("Failed to seek on ready:", err);
+        }
+      }
+
+      if (trackId && wavesurfer) {
+        const tracks = store.tracks;
+        const track = tracks.find((t) => t.id === trackId);
+        if (track) {
+          const volume = track.volume;
+          const muted = track.muted;
+          if (!isNaN(volume) && isFinite(volume)) {
+            const effectiveVolume = muted ? 0 : Math.max(0, Math.min(1, volume));
+            try {
+              wavesurfer.setVolume(effectiveVolume);
+              lastEffectiveVolume = effectiveVolume;
+
+              try {
+                const backend = (wavesurfer as any).backend;
+                if (backend) {
+                  const gainNode =
+                    backend.gainNode || backend.gain?.node || (backend as any).gainNode;
+                  if (gainNode && gainNode.gain !== undefined) {
+                    gainNode.gain.value = effectiveVolume;
+                  }
+                }
+              } catch (backendErr) {}
+            } catch (err) {
+              console.warn("Failed to set volume on ready:", err);
+            }
+          }
         }
       }
     });
@@ -759,6 +790,48 @@ export const useWaveform = (
           end: selection.end,
         });
       }
+    }
+  });
+
+  createEffect(() => {
+    if (!wavesurfer || !trackId || !isAudioLoaded) return;
+
+    const tracks = store.tracks;
+    const trackIndex = tracks.findIndex((t) => t.id === trackId);
+    if (trackIndex === -1) return;
+
+    const track = tracks[trackIndex];
+    if (!track) return;
+
+    const volume = track.volume;
+    const muted = track.muted;
+
+    if (isNaN(volume) || !isFinite(volume)) return;
+
+    const effectiveVolume = muted ? 0 : Math.max(0, Math.min(1, volume));
+
+    if (effectiveVolume === lastEffectiveVolume) return;
+    lastEffectiveVolume = effectiveVolume;
+
+    try {
+      if (volumeUpdateTimeout) {
+        clearTimeout(volumeUpdateTimeout);
+        volumeUpdateTimeout = null;
+      }
+
+      wavesurfer.setVolume(effectiveVolume);
+
+      try {
+        const backend = (wavesurfer as any).backend;
+        if (backend) {
+          const gainNode = backend.gainNode || backend.gain?.node || (backend as any).gainNode;
+          if (gainNode && gainNode.gain !== undefined) {
+            gainNode.gain.value = effectiveVolume;
+          }
+        }
+      } catch (backendErr) {}
+    } catch (err) {
+      console.warn("Failed to set volume:", err);
     }
   });
 

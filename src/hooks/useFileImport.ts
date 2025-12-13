@@ -22,6 +22,9 @@ export const useFileImport = () => {
         audioUrl,
         duration: audioBuffer.duration,
         backgroundColor: null,
+        volume: 1,
+        muted: false,
+        soloed: false,
       });
     } finally {
       setIsLoading(false);

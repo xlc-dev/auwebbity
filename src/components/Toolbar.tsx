@@ -46,9 +46,7 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
   const hasSelection = () => store.selection !== null;
   const hasClipboard = () => store.clipboard !== null;
 
-  const Separator = () => (
-    <div class="h-6 w-px bg-[var(--color-border)]"></div>
-  );
+  const Separator = () => <div class="h-6 w-px bg-[var(--color-border)]"></div>;
 
   return (
     <div class="fixed bottom-0 left-0 right-0 z-[100] p-3 pointer-events-none">

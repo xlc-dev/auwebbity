@@ -80,6 +80,9 @@ export const useAudioRecorder = () => {
             audioUrl,
             duration: audioBuffer.duration,
             backgroundColor: null,
+            volume: 1,
+            muted: false,
+            soloed: false,
           });
 
           stopMediaStream(stream);
