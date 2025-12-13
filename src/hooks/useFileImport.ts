@@ -11,7 +11,7 @@ export const useFileImport = () => {
     const arrayBuffer = await file.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-    addTrack({
+    await addTrack({
       name: file.name,
       audioBuffer,
       audioUrl,

@@ -74,7 +74,7 @@ export const useAudioRecorder = () => {
           const arrayBuffer = await audioBlob.arrayBuffer();
           const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-          addTrack({
+          await addTrack({
             name: `Recording ${formatDateForFilename()}`,
             audioBuffer,
             audioUrl,

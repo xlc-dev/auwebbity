@@ -51,7 +51,7 @@ export const useAudioOperations = () => {
 
     setIsLoading(true);
     try {
-      await saveToHistory(currentTrack.id);
+      await saveToHistory();
       setClipboard(null);
 
       const copiedBuffer = await audioOperations.copy(
@@ -106,7 +106,7 @@ export const useAudioOperations = () => {
     setIsLoading(true);
     try {
       const trackId = currentTrack.id;
-      await saveToHistory(trackId);
+      await saveToHistory();
 
       const insertTime = store.currentTime;
       const newBuffer = await audioOperations.paste(
@@ -129,7 +129,7 @@ export const useAudioOperations = () => {
 
     setIsLoading(true);
     try {
-      await saveToHistory(currentTrack.id);
+      await saveToHistory();
 
       const { before, after } = await audioOperations.cut(
         currentTrack.audioBuffer,
@@ -157,13 +157,14 @@ export const useAudioOperations = () => {
   ) => {
     setIsLoading(true);
     try {
+      await saveToHistory();
+
       if (scope === "all") {
         for (const track of store.tracks) {
           if (!track.audioBuffer) continue;
           const waveform = waveformRef(track.id);
           if (!waveform) continue;
 
-          await saveToHistory(track.id);
           const newBuffer = await effectFn(track.audioBuffer);
           await updateTrackAfterOperation(track.id, newBuffer, () => waveform);
         }
@@ -177,8 +178,6 @@ export const useAudioOperations = () => {
 
         const waveform = waveformRef(targetTrackId);
         if (!waveform) return;
-
-        await saveToHistory(targetTrackId);
 
         let newBuffer: AudioBuffer;
         if (scope === "selection" && store.selection) {

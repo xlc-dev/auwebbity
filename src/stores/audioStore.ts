@@ -33,29 +33,45 @@ export interface AudioState {
   projectName: string;
 }
 
-export interface HistoryState {
-  trackId: string;
-  audioBuffer: AudioBuffer;
-  audioUrl: string;
-  duration: number;
+interface ProjectSnapshot {
+  tracks: Array<{
+    id: string;
+    name: string;
+    audioBuffer: AudioBuffer | null;
+    audioUrl: string;
+    duration: number;
+    backgroundColor: string | null;
+    volume: number;
+    muted: boolean;
+    soloed: boolean;
+  }>;
+  currentTrackId: string | null;
 }
 
 const STORAGE_KEY = "auwebbity-state";
 const DB_NAME = "auwebbity-audio";
 const DB_VERSION = 1;
 
-interface PersistedHistoryState {
-  trackId: string;
-  audioUrl: string;
-  duration: number;
-  bufferId: string;
+interface PersistedSnapshot {
+  tracks: Array<{
+    id: string;
+    name: string;
+    audioUrl: string;
+    duration: number;
+    backgroundColor: string | null;
+    volume: number;
+    muted: boolean;
+    soloed: boolean;
+    bufferId: string | null;
+  }>;
+  currentTrackId: string | null;
 }
 
 interface PersistedState {
   tracks: Omit<AudioTrack, "audioBuffer">[];
   currentTrackId: string | null;
-  undoStack?: PersistedHistoryState[];
-  redoStack?: PersistedHistoryState[];
+  undoStack?: PersistedSnapshot[];
+  redoStack?: PersistedSnapshot[];
   projectName?: string;
 }
 
@@ -137,10 +153,39 @@ async function loadAudioBuffer(id: string): Promise<AudioBuffer | null> {
 
 async function saveState(
   state: AudioState,
-  undoStack: HistoryState[] = [],
-  redoStack: HistoryState[] = []
+  undoStack: ProjectSnapshot[] = [],
+  redoStack: ProjectSnapshot[] = []
 ): Promise<void> {
   try {
+    const persistSnapshot = async (
+      snapshot: ProjectSnapshot,
+      prefix: string
+    ): Promise<PersistedSnapshot> => {
+      return {
+        tracks: await Promise.all(
+          snapshot.tracks.map(async (track) => {
+            let bufferId: string | null = null;
+            if (track.audioBuffer) {
+              bufferId = `${prefix}-${track.id}-${Date.now()}-${Math.random()}`;
+              await saveAudioBuffer(bufferId, track.audioBuffer);
+            }
+            return {
+              id: track.id,
+              name: track.name,
+              audioUrl: track.audioUrl,
+              duration: track.duration,
+              backgroundColor: track.backgroundColor,
+              volume: track.volume,
+              muted: track.muted,
+              soloed: track.soloed,
+              bufferId,
+            };
+          })
+        ),
+        currentTrackId: snapshot.currentTrackId,
+      };
+    };
+
     const persistedState: PersistedState = {
       tracks: state.tracks.map(({ audioBuffer, ...track }) => ({
         ...track,
@@ -149,28 +194,10 @@ async function saveState(
       currentTrackId: state.currentTrackId,
       projectName: state.projectName,
       undoStack: await Promise.all(
-        undoStack.map(async (historyState, index) => {
-          const bufferId = `undo-${historyState.trackId}-${index}`;
-          await saveAudioBuffer(bufferId, historyState.audioBuffer);
-          return {
-            trackId: historyState.trackId,
-            audioUrl: historyState.audioUrl,
-            duration: historyState.duration,
-            bufferId,
-          };
-        })
+        undoStack.map((snapshot, index) => persistSnapshot(snapshot, `undo-${index}`))
       ),
       redoStack: await Promise.all(
-        redoStack.map(async (historyState, index) => {
-          const bufferId = `redo-${historyState.trackId}-${index}`;
-          await saveAudioBuffer(bufferId, historyState.audioBuffer);
-          return {
-            trackId: historyState.trackId,
-            audioUrl: historyState.audioUrl,
-            duration: historyState.duration,
-            bufferId,
-          };
-        })
+        redoStack.map((snapshot, index) => persistSnapshot(snapshot, `redo-${index}`))
       ),
     };
 
@@ -209,8 +236,8 @@ async function saveState(
 
 async function loadState(): Promise<
   | (Partial<AudioState> & {
-      undoStack?: HistoryState[];
-      redoStack?: HistoryState[];
+      undoStack?: ProjectSnapshot[];
+      redoStack?: ProjectSnapshot[];
     })
   | null
 > {
@@ -236,33 +263,43 @@ async function loadState(): Promise<
       clipboard = await loadAudioBuffer("clipboard");
     } catch {}
 
-    const restoreHistoryStack = async (
-      persistedStack: PersistedHistoryState[]
-    ): Promise<HistoryState[]> => {
-      return Promise.all(
-        persistedStack.map(async (persisted) => {
-          const audioBuffer = await loadAudioBuffer(persisted.bufferId);
-          if (!audioBuffer) {
-            throw new Error(`Failed to load history buffer ${persisted.bufferId}`);
+    const restoreSnapshot = async (persisted: PersistedSnapshot): Promise<ProjectSnapshot> => {
+      const restoredTracks = await Promise.all(
+        persisted.tracks.map(async (track) => {
+          let audioBuffer: AudioBuffer | null = null;
+          let audioUrl = track.audioUrl;
+          if (track.bufferId) {
+            audioBuffer = await loadAudioBuffer(track.bufferId);
+            if (audioBuffer) {
+              const blob = await audioOperations.audioBufferToBlob(audioBuffer);
+              audioUrl = URL.createObjectURL(blob);
+            }
           }
-          const blob = await audioOperations.audioBufferToBlob(audioBuffer);
-          const audioUrl = URL.createObjectURL(blob);
           return {
-            trackId: persisted.trackId,
+            id: track.id,
+            name: track.name,
             audioBuffer,
             audioUrl,
-            duration: persisted.duration,
+            duration: track.duration,
+            backgroundColor: track.backgroundColor,
+            volume: track.volume,
+            muted: track.muted,
+            soloed: track.soloed,
           };
         })
       );
+      return {
+        tracks: restoredTracks,
+        currentTrackId: persisted.currentTrackId,
+      };
     };
 
-    const undoStack: HistoryState[] = persistedState.undoStack
-      ? await restoreHistoryStack(persistedState.undoStack)
+    const undoStack: ProjectSnapshot[] = persistedState.undoStack
+      ? await Promise.all(persistedState.undoStack.map(restoreSnapshot))
       : [];
 
-    const redoStack: HistoryState[] = persistedState.redoStack
-      ? await restoreHistoryStack(persistedState.redoStack)
+    const redoStack: ProjectSnapshot[] = persistedState.redoStack
+      ? await Promise.all(persistedState.redoStack.map(restoreSnapshot))
       : [];
 
     return {
@@ -317,8 +354,8 @@ const scheduleSave = () => {
 };
 
 const MAX_HISTORY = 50;
-let undoStack: HistoryState[] = [];
-let redoStack: HistoryState[] = [];
+let undoStack: ProjectSnapshot[] = [];
+let redoStack: ProjectSnapshot[] = [];
 
 let isInitialized = false;
 export const initializeStore = async () => {
@@ -377,7 +414,8 @@ export const initializeStore = async () => {
 };
 
 export const useAudioStore = () => {
-  const addTrack = (track: Omit<AudioTrack, "id">) => {
+  const addTrack = async (track: Omit<AudioTrack, "id">) => {
+    await saveToHistory();
     const id = crypto.randomUUID();
     setAudioStore("tracks", (tracks) => [...tracks, { ...track, id }]);
     setAudioStore("currentTrackId", id);
@@ -454,17 +492,6 @@ export const useAudioStore = () => {
     });
   };
 
-  const createHistoryState = async (
-    trackId: string,
-    audioBuffer: AudioBuffer,
-    duration: number
-  ): Promise<HistoryState> => {
-    const clonedBuffer = cloneAudioBuffer(audioBuffer);
-    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
-    const audioUrl = URL.createObjectURL(blob);
-    return { trackId, audioBuffer: clonedBuffer, audioUrl, duration };
-  };
-
   const revokeTrackUrls = (tracks: AudioTrack[]): void => {
     tracks.forEach((track) => {
       if (track.audioUrl) {
@@ -473,84 +500,94 @@ export const useAudioStore = () => {
     });
   };
 
-  const saveToHistory = async (trackId: string) => {
-    const track = audioStore.tracks.find((t) => t.id === trackId);
-    if (!track?.audioBuffer) {
-      console.warn("saveToHistory: Track not found or no audio buffer", trackId);
-      return;
-    }
+  const createSnapshot = async (): Promise<ProjectSnapshot> => {
+    const tracks = await Promise.all(
+      audioStore.tracks.map(async (track) => {
+        let audioBuffer: AudioBuffer | null = null;
+        let audioUrl = track.audioUrl;
+        if (track.audioBuffer) {
+          audioBuffer = cloneAudioBuffer(track.audioBuffer);
+          const blob = await audioOperations.audioBufferToBlob(audioBuffer);
+          audioUrl = URL.createObjectURL(blob);
+        }
+        return {
+          id: track.id,
+          name: track.name,
+          audioBuffer,
+          audioUrl,
+          duration: track.duration,
+          backgroundColor: track.backgroundColor,
+          volume: track.volume,
+          muted: track.muted,
+          soloed: track.soloed,
+        };
+      })
+    );
+    return {
+      tracks,
+      currentTrackId: audioStore.currentTrackId,
+    };
+  };
 
-    const historyState = await createHistoryState(trackId, track.audioBuffer, track.duration);
-
-    undoStack.push(historyState);
+  const saveToHistory = async () => {
+    const snapshot = await createSnapshot();
+    undoStack.push(snapshot);
     if (undoStack.length > MAX_HISTORY) {
       const old = undoStack.shift();
-      if (old?.audioUrl) {
-        URL.revokeObjectURL(old.audioUrl);
+      if (old) {
+        revokeTrackUrls(old.tracks);
       }
     }
-
+    redoStack.forEach((snapshot) => revokeTrackUrls(snapshot.tracks));
     redoStack = [];
     setAudioStore("undoStackLength", undoStack.length);
     setAudioStore("redoStackLength", 0);
   };
 
-  const applyHistoryState = async (direction: "undo" | "redo"): Promise<boolean> => {
-    const sourceStack = direction === "undo" ? undoStack : redoStack;
-    const targetStack = direction === "undo" ? redoStack : undoStack;
-
-    if (sourceStack.length === 0) return false;
-
-    const currentTrack = getCurrentTrack();
-    if (!currentTrack?.audioBuffer) return false;
-
-    const currentState = await createHistoryState(
-      currentTrack.id,
-      currentTrack.audioBuffer,
-      currentTrack.duration
-    );
-
-    targetStack.push(currentState);
-    setAudioStore(direction === "undo" ? "redoStackLength" : "undoStackLength", targetStack.length);
-
-    const stateToRestore = sourceStack.pop()!;
-    setAudioStore(direction === "undo" ? "undoStackLength" : "redoStackLength", sourceStack.length);
-
-    const trackIndex = audioStore.tracks.findIndex((t) => t.id === stateToRestore.trackId);
-    if (trackIndex === -1) return false;
-
-    if (currentTrack.audioUrl) {
-      URL.revokeObjectURL(currentTrack.audioUrl);
-    }
-
-    const newBlob = await audioOperations.audioBufferToBlob(stateToRestore.audioBuffer);
-    const newUrl = URL.createObjectURL(newBlob);
-    const restoredBuffer = cloneAudioBuffer(stateToRestore.audioBuffer);
-
-    setAudioStore("tracks", (tracks) => {
-      const newTracks = [...tracks];
-      const existingTrack = audioStore.tracks[trackIndex];
-      if (existingTrack) {
-        newTracks[trackIndex] = {
-          ...existingTrack,
-          audioBuffer: restoredBuffer,
-          audioUrl: newUrl,
-          duration: stateToRestore.duration,
+  const restoreSnapshot = async (snapshot: ProjectSnapshot) => {
+    revokeTrackUrls(audioStore.tracks);
+    const restoredTracks = await Promise.all(
+      snapshot.tracks.map(async (track) => {
+        let audioUrl = track.audioUrl;
+        if (track.audioBuffer) {
+          const blob = await audioOperations.audioBufferToBlob(track.audioBuffer);
+          audioUrl = URL.createObjectURL(blob);
+        }
+        return {
+          ...track,
+          audioBuffer: track.audioBuffer ? cloneAudioBuffer(track.audioBuffer) : null,
+          audioUrl,
         };
-      }
-      return newTracks;
+      })
+    );
+    setAudioStore({
+      tracks: restoredTracks,
+      currentTrackId: snapshot.currentTrackId,
+      selection: null,
     });
-
     scheduleSave();
-    return true;
   };
 
   const undo = async (): Promise<boolean> => {
-    return applyHistoryState("undo");
+    if (undoStack.length === 0) return false;
+    const currentSnapshot = await createSnapshot();
+    redoStack.push(currentSnapshot);
+    setAudioStore("redoStackLength", redoStack.length);
+    const snapshotToRestore = undoStack.pop()!;
+    setAudioStore("undoStackLength", undoStack.length);
+    await restoreSnapshot(snapshotToRestore);
+    return true;
   };
 
   const redo = async (): Promise<boolean> => {
-    return applyHistoryState("redo");
+    if (redoStack.length === 0) return false;
+    const currentSnapshot = await createSnapshot();
+    undoStack.push(currentSnapshot);
+    setAudioStore("undoStackLength", undoStack.length);
+    const snapshotToRestore = redoStack.pop()!;
+    setAudioStore("redoStackLength", redoStack.length);
+    await restoreSnapshot(snapshotToRestore);
+    return true;
   };
 
   const canUndo = () => audioStore.undoStackLength > 0;
@@ -562,9 +599,11 @@ export const useAudioStore = () => {
     scheduleSave();
   };
 
-  const deleteTrack = (trackId: string) => {
+  const deleteTrack = async (trackId: string) => {
     const track = audioStore.tracks.find((t) => t.id === trackId);
     if (!track) return;
+
+    await saveToHistory();
 
     if (track.audioUrl) {
       URL.revokeObjectURL(track.audioUrl);
@@ -581,7 +620,8 @@ export const useAudioStore = () => {
     scheduleSave();
   };
 
-  const reorderTracks = (fromIndex: number, toIndex: number) => {
+  const reorderTracks = async (fromIndex: number, toIndex: number) => {
+    await saveToHistory();
     setAudioStore("tracks", (tracks) => {
       const newTracks = [...tracks];
       const [movedTrack] = newTracks.splice(fromIndex, 1);
@@ -590,6 +630,39 @@ export const useAudioStore = () => {
       }
       return newTracks;
     });
+    scheduleSave();
+  };
+
+  const duplicateTrack = async (trackId: string) => {
+    const track = audioStore.tracks.find((t) => t.id === trackId);
+    if (!track || !track.audioBuffer) return;
+
+    await saveToHistory();
+
+    const clonedBuffer = cloneAudioBuffer(track.audioBuffer);
+    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
+    const audioUrl = URL.createObjectURL(blob);
+
+    const newId = crypto.randomUUID();
+    const newTrack: AudioTrack = {
+      id: newId,
+      name: `${track.name} Copy`,
+      audioBuffer: clonedBuffer,
+      audioUrl,
+      duration: track.duration,
+      backgroundColor: track.backgroundColor,
+      volume: track.volume,
+      muted: track.muted,
+      soloed: track.soloed,
+    };
+
+    const trackIndex = audioStore.tracks.findIndex((t) => t.id === trackId);
+    setAudioStore("tracks", (tracks) => {
+      const newTracks = [...tracks];
+      newTracks.splice(trackIndex + 1, 0, newTrack);
+      return newTracks;
+    });
+    setAudioStore("currentTrackId", newId);
     scheduleSave();
   };
 
@@ -615,5 +688,6 @@ export const useAudioStore = () => {
     setCurrentTrackId,
     deleteTrack,
     reorderTracks,
+    duplicateTrack,
   };
 };
