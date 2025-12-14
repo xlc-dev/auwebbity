@@ -899,19 +899,6 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     return (containerWidth / maxDur) * (store.zoom / 100);
   });
 
-  const playheadPosition = createMemo(() => {
-    const maxDur = maxDuration();
-    if (maxDur <= 0) return 0;
-
-    const pps = pixelsPerSecond();
-    if (pps <= 0) return 0;
-
-    const currentTime = store.currentTime;
-    const fullTimelineWidth = maxDur * pps;
-    const position = currentTime * pps;
-    return Math.max(0, Math.min(fullTimelineWidth, position));
-  });
-
   const repeatRegionPosition = createMemo(() => {
     const repeatRegion = store.repeatRegion;
     if (!repeatRegion) return null;
@@ -1089,16 +1076,6 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                     }}
                   />
                 )}
-              </Show>
-              <Show when={store.tracks.length > 0 && playheadPosition() >= 0}>
-                <div
-                  class="absolute w-[3px] bg-white z-[20] pointer-events-none"
-                  style={{
-                    left: `${sidebarWidth() + Math.floor(playheadPosition())}px`,
-                    top: "0px",
-                    height: `${store.tracks.length * 200}px`,
-                  }}
-                />
               </Show>
               <For each={store.tracks}>
                 {(track, index) => {
