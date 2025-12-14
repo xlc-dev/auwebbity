@@ -10,6 +10,7 @@ export interface ProjectFile {
     duration: number;
     backgroundColor: string | null;
     volume: number;
+    pan: number;
     muted: boolean;
     soloed: boolean;
     waveformRenderer: "bars" | "line" | "spectrogram";
@@ -45,6 +46,7 @@ export async function exportProject(state: AudioState): Promise<Blob> {
         duration: track.duration,
         backgroundColor: track.backgroundColor,
         volume: track.volume,
+        pan: track.pan,
         muted: track.muted,
         soloed: track.soloed,
         waveformRenderer: track.waveformRenderer,
@@ -109,6 +111,7 @@ export async function importProject(
         duration: trackData.duration,
         backgroundColor: trackData.backgroundColor,
         volume: trackData.volume ?? 1,
+        pan: trackData.pan ?? 0,
         muted: trackData.muted ?? false,
         soloed: trackData.soloed ?? false,
         waveformRenderer: trackData.waveformRenderer || "bars",

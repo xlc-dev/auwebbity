@@ -45,6 +45,7 @@ export function mixTracksWithVolume(
   tracks: Array<{
     audioBuffer: AudioBuffer | null;
     volume: number;
+    pan: number;
     muted: boolean;
     soloed: boolean;
   }>,
@@ -79,27 +80,54 @@ export function mixTracksWithVolume(
   for (const track of tracksToMix) {
     const buffer = track.audioBuffer!;
     const volume = track.volume;
+    const pan = track.pan ?? 0;
     const trackChannels = buffer.numberOfChannels;
     const trackSampleRate = buffer.sampleRate;
     const trackDuration = buffer.duration;
     const trackLength = Math.floor(Math.min(trackDuration, maxDuration) * sr);
+
+    // Calculate pan gains using equal-power panning
+    // pan: -1 (left) to 1 (right)
+    const panValue = Math.max(-1, Math.min(1, pan));
+    const leftGain = Math.cos((panValue + 1) * (Math.PI / 4));
+    const rightGain = Math.sin((panValue + 1) * (Math.PI / 4));
 
     for (let channel = 0; channel < maxChannels; channel++) {
       const mixedData = mixedBuffer.getChannelData(channel);
       const sourceChannel = channel < trackChannels ? channel : trackChannels - 1;
       const sourceData = buffer.getChannelData(sourceChannel);
 
+      // Determine pan gain for this channel
+      let channelGain = volume;
+      if (maxChannels >= 2) {
+        if (channel === 0) {
+          // Left channel
+          channelGain = volume * leftGain;
+        } else if (channel === 1) {
+          // Right channel
+          channelGain = volume * rightGain;
+        }
+        // For mono sources on stereo output, apply panning
+        if (trackChannels === 1 && maxChannels >= 2) {
+          if (channel === 0) {
+            channelGain = volume * leftGain;
+          } else if (channel === 1) {
+            channelGain = volume * rightGain;
+          }
+        }
+      }
+
       if (trackSampleRate === sr) {
         const sourceLength = Math.min(sourceData.length, trackLength);
         for (let i = 0; i < sourceLength; i++) {
-          mixedData[i] = (mixedData[i] ?? 0) + (sourceData[i] ?? 0) * volume;
+          mixedData[i] = (mixedData[i] ?? 0) + (sourceData[i] ?? 0) * channelGain;
         }
       } else {
         const ratio = trackSampleRate / sr;
         for (let i = 0; i < trackLength; i++) {
           const sourceIndex = Math.floor(i * ratio);
           if (sourceIndex < sourceData.length) {
-            mixedData[i] = (mixedData[i] ?? 0) + (sourceData[sourceIndex] ?? 0) * volume;
+            mixedData[i] = (mixedData[i] ?? 0) + (sourceData[sourceIndex] ?? 0) * channelGain;
           }
         }
       }

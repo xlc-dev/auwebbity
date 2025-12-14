@@ -26,6 +26,7 @@ export default function App() {
     setRepeatRegion,
     saveProject,
     loadProject,
+    splitTrack,
   } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
@@ -174,6 +175,7 @@ export default function App() {
         store.tracks.map((t) => ({
           audioBuffer: t.audioBuffer,
           volume: t.volume,
+          pan: t.pan,
           muted: t.muted,
           soloed: t.soloed,
         })),
@@ -461,6 +463,23 @@ export default function App() {
           () => audioOps.handleDelete(waveformRef),
           "Failed to delete"
         )}
+        onSplit={async () => {
+          const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
+          if (!currentTrack?.audioBuffer) return;
+
+          const splitTime = store.selection?.start ?? store.currentTime;
+          if (splitTime <= 0 || splitTime >= currentTrack.duration) {
+            toast.addToast("Cannot split at this position");
+            return;
+          }
+
+          try {
+            await splitTrack(currentTrack.id, splitTime);
+            toast.addToast("Track split successfully");
+          } catch (err) {
+            toast.addToast(getErrorMessage(err, "Failed to split track"));
+          }
+        }}
         onHelpClick={() => setShowShortcuts(true)}
         onSaveProject={handleSaveProject}
         onLoadProject={handleLoadProject}

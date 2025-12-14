@@ -18,6 +18,7 @@ export const useFileImport = () => {
       duration: audioBuffer.duration,
       backgroundColor: null,
       volume: 1,
+      pan: 0,
       muted: false,
       soloed: false,
       waveformRenderer: "bars",

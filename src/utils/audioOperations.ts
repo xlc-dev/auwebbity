@@ -182,6 +182,45 @@ export const audioOperations = {
     URL.revokeObjectURL(url);
   },
 
+  async split(
+    audioBuffer: AudioBuffer,
+    splitTime: number
+  ): Promise<{ left: AudioBuffer; right: AudioBuffer }> {
+    const splitSample = Math.floor(splitTime * audioBuffer.sampleRate);
+    const audioContext = new AudioContext();
+
+    const leftLength = Math.max(1, splitSample);
+    const rightLength = Math.max(1, audioBuffer.length - splitSample);
+
+    const leftBuffer = audioContext.createBuffer(
+      audioBuffer.numberOfChannels,
+      leftLength,
+      audioBuffer.sampleRate
+    );
+
+    const rightBuffer = audioContext.createBuffer(
+      audioBuffer.numberOfChannels,
+      rightLength,
+      audioBuffer.sampleRate
+    );
+
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+      const oldData = audioBuffer.getChannelData(channel);
+      const leftData = leftBuffer.getChannelData(channel);
+      const rightData = rightBuffer.getChannelData(channel);
+
+      for (let i = 0; i < leftLength; i++) {
+        leftData[i] = oldData[i] ?? 0;
+      }
+
+      for (let i = 0; i < rightLength; i++) {
+        rightData[i] = oldData[splitSample + i] ?? 0;
+      }
+    }
+
+    return { left: leftBuffer, right: rightBuffer };
+  },
+
   async audioBufferToMP3OrOGG(
     audioBuffer: AudioBuffer,
     format: "mp3" | "ogg",

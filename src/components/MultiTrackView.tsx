@@ -23,6 +23,7 @@ interface TrackRowProps {
   onRename: (name: string) => void;
   onColorChange: (color: string | null) => void;
   onVolumeChange?: (volume: number) => void;
+  onPanChange?: (pan: number) => void;
   onMuteToggle?: () => void;
   onSoloToggle?: () => void;
   canDelete: boolean;
@@ -44,10 +45,12 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   let containerRef: HTMLDivElement | undefined;
   let colorPickerRef: HTMLDivElement | undefined;
   let volumeSliderRef: HTMLDivElement | undefined;
+  let panSliderRef: HTMLDivElement | undefined;
   const [isEditing, setIsEditing] = createSignal(false);
   const [editName, setEditName] = createSignal(props.track.name);
   const [showColorPicker, setShowColorPicker] = createSignal(false);
   const [isDraggingVolume, setIsDraggingVolume] = createSignal(false);
+  const [isDraggingPan, setIsDraggingPan] = createSignal(false);
   const { store, setAudioStore } = useAudioStore();
   const [containerWidth, setContainerWidth] = createSignal(0);
 
@@ -157,12 +160,20 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     setEditName(props.track.name);
   };
 
-  const calculateVolumeFromY = (y: number, rect: DOMRect): number => {
-    if (!rect || rect.height === 0) return props.track.volume;
-    const relativeY = y - rect.top;
-    const clampedY = Math.max(0, Math.min(rect.height, relativeY));
-    const percentage = 1 - clampedY / rect.height;
+  const calculateVolumeFromX = (x: number, rect: DOMRect): number => {
+    if (!rect || rect.width === 0) return props.track.volume;
+    const relativeX = x - rect.left;
+    const clampedX = Math.max(0, Math.min(rect.width, relativeX));
+    const percentage = clampedX / rect.width;
     return Math.max(0, Math.min(1, percentage));
+  };
+
+  const calculatePanFromX = (x: number, rect: DOMRect): number => {
+    if (!rect || rect.width === 0) return props.track.pan;
+    const relativeX = x - rect.left;
+    const clampedX = Math.max(0, Math.min(rect.width, relativeX));
+    const percentage = clampedX / rect.width;
+    return Math.max(-1, Math.min(1, percentage * 2 - 1));
   };
 
   const handleVolumeMouseDown = (e: MouseEvent) => {
@@ -171,16 +182,13 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     e.stopPropagation();
 
     const target = e.target as HTMLElement;
-    const isThumb = target.hasAttribute("data-volume-thumb");
+    const isThumb = target.hasAttribute("data-volume-thumb") || target.closest('[data-volume-thumb]');
 
-    if (!isThumb) {
-      const rect = volumeSliderRef.getBoundingClientRect();
-      if (rect && rect.height > 0) {
-        const clickY = e.clientY;
-        const volume = calculateVolumeFromY(clickY, rect);
-        if (!isNaN(volume) && isFinite(volume) && volume >= 0 && volume <= 1) {
-          props.onVolumeChange?.(volume);
-        }
+    const rect = volumeSliderRef.getBoundingClientRect();
+    if (rect && rect.width > 0) {
+      const volume = calculateVolumeFromX(e.clientX, rect);
+      if (!isNaN(volume) && isFinite(volume) && volume >= 0 && volume <= 1) {
+        props.onVolumeChange?.(volume);
       }
     }
 
@@ -193,24 +201,68 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!volumeSliderRef) return;
       e.preventDefault();
-      e.stopPropagation();
       const rect = volumeSliderRef.getBoundingClientRect();
-      if (rect && rect.height > 0) {
-        const volume = calculateVolumeFromY(e.clientY, rect);
+      if (rect && rect.width > 0) {
+        const volume = calculateVolumeFromX(e.clientX, rect);
         if (!isNaN(volume) && isFinite(volume) && volume >= 0 && volume <= 1) {
           props.onVolumeChange?.(volume);
         }
       }
     };
 
-    const handleMouseUp = (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
+    const handleMouseUp = () => {
       setIsDraggingVolume(false);
     };
 
     document.addEventListener("mousemove", handleMouseMove, { passive: false });
-    document.addEventListener("mouseup", handleMouseUp, { passive: false });
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  });
+
+  const handlePanMouseDown = (e: MouseEvent) => {
+    if (!panSliderRef) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const target = e.target as HTMLElement;
+    const isThumb = target.hasAttribute("data-pan-thumb") || target.closest('[data-pan-thumb]');
+
+    const rect = panSliderRef.getBoundingClientRect();
+    if (rect && rect.width > 0) {
+      const pan = calculatePanFromX(e.clientX, rect);
+      if (!isNaN(pan) && isFinite(pan) && pan >= -1 && pan <= 1) {
+        props.onPanChange?.(pan);
+      }
+    }
+
+    setIsDraggingPan(true);
+  };
+
+  createEffect(() => {
+    if (!isDraggingPan()) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!panSliderRef) return;
+      e.preventDefault();
+      const rect = panSliderRef.getBoundingClientRect();
+      if (rect && rect.width > 0) {
+        const pan = calculatePanFromX(e.clientX, rect);
+        if (!isNaN(pan) && isFinite(pan) && pan >= -1 && pan <= 1) {
+          props.onPanChange?.(pan);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingPan(false);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove, { passive: false });
+    document.addEventListener("mouseup", handleMouseUp);
 
     return () => {
       document.removeEventListener("mousemove", handleMouseMove);
@@ -330,6 +382,74 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                         </div>
                       </Show>
                     </div>
+                    <div class="mt-2 space-y-1.5">
+                      <div>
+                        <div class="flex items-center justify-center mb-0.5">
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Pan</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
+                            {props.track.pan === 0 ? "0%" : props.track.pan > 0 ? `${Math.round(props.track.pan * 100)}%` : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">L</span>
+                          <div
+                            ref={panSliderRef}
+                            class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
+                            style={{ width: "calc(100% - 4rem)" }}
+                            onMouseDown={handlePanMouseDown}
+                            title="Pan"
+                          >
+                            <div
+                              class="absolute left-0 top-0 bottom-0 bg-[var(--color-primary)]/30 transition-all pointer-events-none"
+                              style={{
+                                width: `${((props.track.pan + 1) / 2) * 100}%`,
+                              }}
+                            />
+                            <div
+                              data-pan-thumb
+                              class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-2.5 bg-[var(--color-border)] border border-[var(--color-border-hover)] rounded cursor-grab active:cursor-grabbing transition-all hover:bg-[var(--color-border-hover)] hover:border-[var(--color-primary)] pointer-events-auto"
+                              style={{
+                                left: `${((props.track.pan + 1) / 2) * 100}%`,
+                              }}
+                            />
+                          </div>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">R</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="flex items-center justify-center mb-0.5">
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Vol</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
+                            {Math.round(props.track.volume * 100)}%
+                          </span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">0</span>
+                          <div
+                            ref={volumeSliderRef}
+                            class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
+                            style={{ width: "calc(100% - 4rem)" }}
+                            onMouseDown={handleVolumeMouseDown}
+                            title="Volume"
+                          >
+                            <div
+                              class="absolute left-0 top-0 bottom-0 bg-[var(--color-primary)]/30 transition-all pointer-events-none"
+                              style={{
+                                width: `${props.track.volume * 100}%`,
+                              }}
+                            />
+                            <div
+                              data-volume-thumb
+                              class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-2.5 bg-[var(--color-border)] border border-[var(--color-border-hover)] rounded cursor-grab active:cursor-grabbing transition-all hover:bg-[var(--color-border-hover)] hover:border-[var(--color-primary)] pointer-events-auto"
+                              style={{
+                                left: `${props.track.volume * 100}%`,
+                              }}
+                            />
+                          </div>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">100</span>
+                        </div>
+                      </div>
+                    </div>
                   </>
                 }
               >
@@ -358,6 +478,74 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                       Sample Rate: {Math.round(props.track.audioBuffer!.sampleRate / 1000)}kHz
                     </div>
                   </Show>
+                </div>
+                <div class="mt-2 space-y-1.5">
+                  <div>
+                    <div class="flex items-center justify-center mb-0.5">
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Pan</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
+                        {props.track.pan === 0 ? "0%" : props.track.pan > 0 ? `${Math.round(props.track.pan * 100)}%` : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">L</span>
+                      <div
+                        ref={panSliderRef}
+                        class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
+                        style={{ width: "calc(100% - 4rem)" }}
+                        onMouseDown={handlePanMouseDown}
+                        title="Pan"
+                      >
+                        <div
+                          class="absolute left-0 top-0 bottom-0 bg-[var(--color-primary)]/30 transition-all pointer-events-none"
+                          style={{
+                            width: `${((props.track.pan + 1) / 2) * 100}%`,
+                          }}
+                        />
+                        <div
+                          data-pan-thumb
+                          class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-2.5 bg-[var(--color-border)] border border-[var(--color-border-hover)] rounded cursor-grab active:cursor-grabbing transition-all hover:bg-[var(--color-border-hover)] hover:border-[var(--color-primary)] pointer-events-auto"
+                          style={{
+                            left: `${((props.track.pan + 1) / 2) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">R</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-center mb-0.5">
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Vol</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
+                        {Math.round(props.track.volume * 100)}%
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">0</span>
+                      <div
+                        ref={volumeSliderRef}
+                        class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
+                        style={{ width: "calc(100% - 4rem)" }}
+                        onMouseDown={handleVolumeMouseDown}
+                        title="Volume"
+                      >
+                        <div
+                          class="absolute left-0 top-0 bottom-0 bg-[var(--color-primary)]/30 transition-all pointer-events-none"
+                          style={{
+                            width: `${props.track.volume * 100}%`,
+                          }}
+                        />
+                        <div
+                          data-volume-thumb
+                          class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-2.5 bg-[var(--color-border)] border border-[var(--color-border-hover)] rounded cursor-grab active:cursor-grabbing transition-all hover:bg-[var(--color-border-hover)] hover:border-[var(--color-primary)] pointer-events-auto"
+                          style={{
+                            left: `${props.track.volume * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">100</span>
+                    </div>
+                  </div>
                 </div>
               </Show>
             </div>
@@ -609,35 +797,6 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
             </Tooltip>
           </div>
         </div>
-        <div class="absolute bottom-2 right-2 flex flex-col items-center gap-1 z-10">
-          <div
-            ref={volumeSliderRef}
-            class="relative w-4 h-20 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
-            onMouseDown={handleVolumeMouseDown}
-          >
-            <div
-              class="absolute bottom-0 left-0 right-0 bg-[var(--color-primary)]/30 transition-all pointer-events-none"
-              style={{
-                height: `${props.track.volume * 100}%`,
-              }}
-            />
-            <div
-              data-volume-thumb
-              class="absolute left-1/2 -translate-x-1/2 w-5 h-2.5 bg-[var(--color-border)] border border-[var(--color-border-hover)] rounded cursor-grab active:cursor-grabbing transition-all hover:bg-[var(--color-border-hover)] hover:border-[var(--color-primary)] pointer-events-auto"
-              style={{
-                bottom: `calc(${props.track.volume * 100}% - 5px)`,
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setIsDraggingVolume(true);
-              }}
-            />
-          </div>
-          <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-            {Math.round(props.track.volume * 100)}
-          </span>
-        </div>
       </div>
       <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
         <div
@@ -816,6 +975,14 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     );
   };
 
+  const handleTrackPanChange = (trackId: string, pan: number) => {
+    if (isNaN(pan) || !isFinite(pan)) return;
+    const clampedPan = Math.max(-1, Math.min(1, pan));
+    setAudioStore("tracks", (tracks) =>
+      tracks.map((t) => (t.id === trackId ? { ...t, pan: clampedPan } : t))
+    );
+  };
+
   const handleTrackMuteToggle = (trackId: string) => {
     setAudioStore("tracks", (tracks) =>
       tracks.map((t) => (t.id === trackId ? { ...t, muted: !t.muted } : t))
@@ -972,6 +1139,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                           onRename={(name) => handleTrackRename(track.id, name)}
                           onColorChange={(color) => handleTrackColorChange(track.id, color)}
                           onVolumeChange={(volume) => handleTrackVolumeChange(track.id, volume)}
+                          onPanChange={(pan) => handleTrackPanChange(track.id, pan)}
                           onMuteToggle={() => handleTrackMuteToggle(track.id)}
                           onSoloToggle={() => handleTrackSoloToggle(track.id)}
                           canDelete={store.tracks.length > 1}

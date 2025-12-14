@@ -11,6 +11,7 @@ export interface AudioTrack {
   duration: number;
   backgroundColor: string | null;
   volume: number;
+  pan: number;
   muted: boolean;
   soloed: boolean;
   waveformRenderer: WaveformRenderer;
@@ -46,6 +47,7 @@ interface ProjectSnapshot {
     duration: number;
     backgroundColor: string | null;
     volume: number;
+    pan: number;
     muted: boolean;
     soloed: boolean;
     waveformRenderer: WaveformRenderer;
@@ -65,6 +67,7 @@ interface PersistedSnapshot {
     duration: number;
     backgroundColor: string | null;
     volume: number;
+    pan: number;
     muted: boolean;
     soloed: boolean;
     waveformRenderer: WaveformRenderer;
@@ -182,6 +185,7 @@ async function saveState(
               duration: track.duration,
               backgroundColor: track.backgroundColor,
               volume: track.volume,
+              pan: track.pan,
               muted: track.muted,
               soloed: track.soloed,
               waveformRenderer: track.waveformRenderer,
@@ -260,6 +264,7 @@ async function loadState(): Promise<
         audioBuffer: await loadAudioBuffer(track.id),
         backgroundColor: track.backgroundColor || null,
         volume: track.volume ?? 1,
+        pan: track.pan ?? 0,
         muted: track.muted ?? false,
         soloed: track.soloed ?? false,
         waveformRenderer: (track as any).waveformRenderer || "bars",
@@ -291,6 +296,7 @@ async function loadState(): Promise<
             duration: track.duration,
             backgroundColor: track.backgroundColor,
             volume: track.volume,
+            pan: track.pan ?? 0,
             muted: track.muted,
             soloed: track.soloed,
             waveformRenderer: track.waveformRenderer || "bars",
@@ -527,6 +533,7 @@ export const useAudioStore = () => {
           duration: track.duration,
           backgroundColor: track.backgroundColor,
           volume: track.volume,
+          pan: track.pan,
           muted: track.muted,
           soloed: track.soloed,
           waveformRenderer: track.waveformRenderer,
@@ -662,6 +669,7 @@ export const useAudioStore = () => {
       duration: track.duration,
       backgroundColor: track.backgroundColor,
       volume: track.volume,
+      pan: track.pan,
       muted: track.muted,
       soloed: track.soloed,
       waveformRenderer: track.waveformRenderer,
@@ -674,6 +682,71 @@ export const useAudioStore = () => {
       return newTracks;
     });
     setAudioStore("currentTrackId", newId);
+    scheduleSave();
+  };
+
+  const splitTrack = async (trackId: string, splitTime: number) => {
+    const track = audioStore.tracks.find((t) => t.id === trackId);
+    if (!track || !track.audioBuffer) return;
+
+    if (splitTime <= 0 || splitTime >= track.duration) return;
+
+    await saveToHistory();
+
+    const { left, right } = await audioOperations.split(track.audioBuffer, splitTime);
+
+    const leftBlob = await audioOperations.audioBufferToBlob(left);
+    const leftUrl = URL.createObjectURL(leftBlob);
+    const rightBlob = await audioOperations.audioBufferToBlob(right);
+    const rightUrl = URL.createObjectURL(rightBlob);
+
+    const leftId = crypto.randomUUID();
+    const rightId = crypto.randomUUID();
+
+    const leftTrack: AudioTrack = {
+      id: leftId,
+      name: `${track.name} (1)`,
+      audioBuffer: left,
+      audioUrl: leftUrl,
+      duration: left.duration,
+      backgroundColor: track.backgroundColor,
+      volume: track.volume,
+      pan: track.pan,
+      muted: track.muted,
+      soloed: track.soloed,
+      waveformRenderer: track.waveformRenderer,
+    };
+
+    const rightTrack: AudioTrack = {
+      id: rightId,
+      name: `${track.name} (2)`,
+      audioBuffer: right,
+      audioUrl: rightUrl,
+      duration: right.duration,
+      backgroundColor: track.backgroundColor,
+      volume: track.volume,
+      pan: track.pan,
+      muted: track.muted,
+      soloed: track.soloed,
+      waveformRenderer: track.waveformRenderer,
+    };
+
+    const trackIndex = audioStore.tracks.findIndex((t) => t.id === trackId);
+    if (track.audioUrl) {
+      URL.revokeObjectURL(track.audioUrl);
+    }
+
+    setAudioStore("tracks", (tracks) => {
+      const newTracks = [...tracks];
+      newTracks.splice(trackIndex, 1, leftTrack, rightTrack);
+      return newTracks;
+    });
+
+    if (audioStore.currentTrackId === trackId) {
+      setAudioStore("currentTrackId", leftId);
+    }
+
+    setAudioStore("selection", null);
     scheduleSave();
   };
 
@@ -735,6 +808,7 @@ export const useAudioStore = () => {
     deleteTrack,
     reorderTracks,
     duplicateTrack,
+    splitTrack,
     saveProject,
     loadProject,
   };

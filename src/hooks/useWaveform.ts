@@ -92,6 +92,15 @@ export const useWaveform = (
   let currentAudioUrl: string | null = null;
   let volumeUpdateTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastEffectiveVolume: number | null = null;
+  let upMixerNode: GainNode | null = null;
+  let splitterNode: ChannelSplitterNode | null = null;
+  let mergerNode: ChannelMergerNode | null = null;
+  let leftGainNode: GainNode | null = null;
+  let rightGainNode: GainNode | null = null;
+  let lastPan: number | null = null;
+  let customAudioContext: AudioContext | null = null;
+  let customMediaSource: MediaElementAudioSourceNode | null = null;
+  let isSettingUpPanning = false;
   const getRenderer = (): WaveformRenderer => {
     const renderer = options?.renderer;
     return typeof renderer === "function" ? renderer() : (renderer ?? "bars");
@@ -160,6 +169,115 @@ export const useWaveform = (
     regionsPlugin = waveformResult.regionsPlugin;
     currentRenderer = renderer;
 
+    const setupPanning = () => {
+        try {
+          if (isSettingUpPanning) {
+            return;
+          }
+          isSettingUpPanning = true;
+
+          if (!wavesurfer || !isAudioLoaded) {
+            isSettingUpPanning = false;
+            return;
+          }
+
+          const media = (wavesurfer as any).media;
+          const mediaElement = media instanceof HTMLAudioElement ? media : null;
+
+          if (!mediaElement) {
+            isSettingUpPanning = false;
+            return;
+          }
+
+          if (splitterNode && leftGainNode && rightGainNode && upMixerNode) {
+            isSettingUpPanning = false;
+            return;
+          }
+
+          if (!customAudioContext) {
+            customAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          }
+
+          if (!customMediaSource) {
+            try {
+              customMediaSource = customAudioContext.createMediaElementSource(mediaElement);
+            } catch (sourceErr) {
+              if (sourceErr instanceof Error && sourceErr.message.includes("already connected")) {
+                isSettingUpPanning = false;
+                return;
+              }
+              throw sourceErr;
+            }
+          }
+
+          setupSplitterMergerPanning(customAudioContext, customMediaSource);
+          isSettingUpPanning = false;
+        } catch (err) {
+          isSettingUpPanning = false;
+        }
+      };
+
+    const disconnectNode = (node: AudioNode | null) => {
+      if (node) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+    };
+
+    const setupSplitterMergerPanning = (audioContext: AudioContext, gainNode: AudioNode) => {
+        try {
+          disconnectNode(upMixerNode);
+          upMixerNode = null;
+          disconnectNode(splitterNode);
+          splitterNode = null;
+          disconnectNode(mergerNode);
+          mergerNode = null;
+          disconnectNode(leftGainNode);
+          leftGainNode = null;
+          disconnectNode(rightGainNode);
+          rightGainNode = null;
+
+          const destination = audioContext.destination;
+
+          upMixerNode = audioContext.createGain();
+          upMixerNode.channelCount = 2;
+          upMixerNode.channelCountMode = "explicit";
+          upMixerNode.channelInterpretation = "speakers";
+
+          splitterNode = audioContext.createChannelSplitter(2);
+          mergerNode = audioContext.createChannelMerger(2);
+          leftGainNode = audioContext.createGain();
+          rightGainNode = audioContext.createGain();
+
+          if (gainNode.disconnect) {
+            try {
+              gainNode.disconnect();
+            } catch {}
+          }
+
+          gainNode.connect(upMixerNode);
+          upMixerNode.connect(splitterNode);
+          splitterNode.connect(leftGainNode, 0);
+          splitterNode.connect(rightGainNode, 1);
+          leftGainNode.connect(mergerNode, 0, 0);
+          rightGainNode.connect(mergerNode, 0, 1);
+          mergerNode.connect(destination);
+
+          if (trackId) {
+            const tracks = store.tracks;
+            const track = tracks.find((t) => t.id === trackId);
+            if (track) {
+              const pan = track.pan ?? 0;
+              const panValue = Math.max(-1, Math.min(1, isNaN(pan) || !isFinite(pan) ? 0 : pan));
+              leftGainNode.gain.value = panValue > 0 ? 1 - panValue : 1;
+              rightGainNode.gain.value = panValue > 0 ? 1 : 1 + panValue;
+            }
+          }
+        } catch (err) {
+        }
+      };
+
     wavesurfer.on("ready", () => {
       isAudioLoaded = true;
       if (dragSelectionCleanup) {
@@ -184,9 +302,16 @@ export const useWaveform = (
         try {
           wavesurfer.seekTo(progress);
         } catch (err) {
-          console.warn("Failed to seek on ready:", err);
         }
       }
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (isAudioLoaded && !isSettingUpPanning && splitterNode === null) {
+            setupPanning();
+          }
+        }, 200);
+      });
 
       if (trackId && wavesurfer) {
         const tracks = store.tracks;
@@ -194,24 +319,18 @@ export const useWaveform = (
         if (track) {
           const volume = track.volume;
           const muted = track.muted;
+          const pan = track.pan ?? 0;
           if (!isNaN(volume) && isFinite(volume)) {
             const effectiveVolume = muted ? 0 : Math.max(0, Math.min(1, volume));
-            try {
-              wavesurfer.setVolume(effectiveVolume);
-              lastEffectiveVolume = effectiveVolume;
+            const effectivePan = Math.max(-1, Math.min(1, isNaN(pan) || !isFinite(pan) ? 0 : pan));
+            wavesurfer.setVolume(effectiveVolume);
+            lastEffectiveVolume = effectiveVolume;
+            lastPan = effectivePan;
 
-              try {
-                const backend = (wavesurfer as any).backend;
-                if (backend) {
-                  const gainNode =
-                    backend.gainNode || backend.gain?.node || (backend as any).gainNode;
-                  if (gainNode && gainNode.gain !== undefined) {
-                    gainNode.gain.value = effectiveVolume;
-                  }
-                }
-              } catch (backendErr) {}
-            } catch (err) {
-              console.warn("Failed to set volume on ready:", err);
+            if (splitterNode && leftGainNode && rightGainNode) {
+              const panValue = effectivePan;
+              leftGainNode.gain.value = panValue > 0 ? 1 - panValue : 1;
+              rightGainNode.gain.value = panValue > 0 ? 1 : 1 + panValue;
             }
           }
         }
@@ -222,6 +341,11 @@ export const useWaveform = (
       if (isCurrent) {
         setPlaying(true);
       }
+      setTimeout(() => {
+        if (isAudioLoaded && wavesurfer && !isSettingUpPanning && splitterNode === null) {
+          setupPanning();
+        }
+      }, 100);
     });
 
     wavesurfer.on("pause", () => {
@@ -322,7 +446,6 @@ export const useWaveform = (
       try {
         wavesurfer.seekTo(progress);
       } catch (err) {
-        console.warn("Failed to seek waveform:", err);
       }
 
       if (!isCurrent) return;
@@ -345,7 +468,6 @@ export const useWaveform = (
             }
           }
         } catch (err) {
-          console.warn("Failed to play waveform:", err);
         }
       } else {
         try {
@@ -353,7 +475,6 @@ export const useWaveform = (
             wavesurfer.pause();
           }
         } catch (err) {
-          console.warn("Failed to pause waveform:", err);
         }
       }
     });
@@ -541,6 +662,11 @@ export const useWaveform = (
       if (isCurrent) {
         setPlaying(true);
       }
+      setTimeout(() => {
+        if (isAudioLoaded && wavesurfer && !isSettingUpPanning && splitterNode === null) {
+          setupPanning();
+        }
+      }, 100);
     });
 
     wavesurfer.on("pause", () => {
@@ -812,13 +938,11 @@ export const useWaveform = (
           try {
             wavesurfer?.seekTo(progress);
           } catch (err) {
-            console.warn("Failed to seek after load:", err);
           }
         });
       }
     } catch (err) {
       if (abortController.signal.aborted || isAbortError(err)) return;
-      console.error("Failed to load audio:", err);
       isAudioLoaded = false;
       currentAudioUrl = null;
     } finally {
@@ -1101,33 +1225,34 @@ export const useWaveform = (
 
     const volume = track.volume;
     const muted = track.muted;
+    const pan = track.pan ?? 0;
 
     if (isNaN(volume) || !isFinite(volume)) return;
 
     const effectiveVolume = muted ? 0 : Math.max(0, Math.min(1, volume));
+    const effectivePan = Math.max(-1, Math.min(1, isNaN(pan) || !isFinite(pan) ? 0 : pan));
 
-    if (effectiveVolume === lastEffectiveVolume) return;
+    if (effectiveVolume === lastEffectiveVolume && effectivePan === lastPan) return;
     lastEffectiveVolume = effectiveVolume;
+    lastPan = effectivePan;
 
-    try {
-      if (volumeUpdateTimeout) {
-        clearTimeout(volumeUpdateTimeout);
-        volumeUpdateTimeout = null;
-      }
+    if (volumeUpdateTimeout) {
+      clearTimeout(volumeUpdateTimeout);
+      volumeUpdateTimeout = null;
+    }
 
-      wavesurfer.setVolume(effectiveVolume);
+    wavesurfer.setVolume(effectiveVolume);
 
-      try {
-        const backend = (wavesurfer as any).backend;
-        if (backend) {
-          const gainNode = backend.gainNode || backend.gain?.node || (backend as any).gainNode;
-          if (gainNode && gainNode.gain !== undefined) {
-            gainNode.gain.value = effectiveVolume;
-          }
+    if (splitterNode && leftGainNode && rightGainNode) {
+      const panValue = effectivePan;
+      leftGainNode.gain.value = panValue > 0 ? 1 - panValue : 1;
+      rightGainNode.gain.value = panValue > 0 ? 1 : 1 + panValue;
+    } else {
+      setTimeout(() => {
+        if (isAudioLoaded && wavesurfer && !isSettingUpPanning && splitterNode === null) {
+          setupPanning();
         }
-      } catch (backendErr) {}
-    } catch (err) {
-      console.warn("Failed to set volume:", err);
+      }, 100);
     }
   });
 
