@@ -70,6 +70,7 @@ export const useWaveform = (
     backgroundColor?: string | null;
     onSelectionCreated?: (trackId: string) => void;
     renderer?: WaveformRenderer | (() => WaveformRenderer);
+    onSeek?: (time: number) => void;
   }
 ) => {
   const autoLoad = options?.autoLoad !== false;
@@ -78,6 +79,7 @@ export const useWaveform = (
   const onTrackSelect = options?.onTrackSelect;
   const backgroundColor = options?.backgroundColor;
   const onSelectionCreated = options?.onSelectionCreated;
+  const onSeek = options?.onSeek;
   let wavesurfer: WaveSurfer | null = null;
   let regionsPlugin: RegionsPlugin | null = null;
   let spectrogramPlugin: any | null = null;
@@ -101,6 +103,10 @@ export const useWaveform = (
   let customAudioContext: AudioContext | null = null;
   let customMediaSource: MediaElementAudioSourceNode | null = null;
   let isSettingUpPanning = false;
+  let mouseDownX = 0;
+  let mouseDownY = 0;
+  let mouseDownTime = 0;
+  let isDragging = false;
   const getRenderer = (): WaveformRenderer => {
     const renderer = options?.renderer;
     return typeof renderer === "function" ? renderer() : (renderer ?? "bars");
@@ -603,7 +609,72 @@ export const useWaveform = (
       });
     }
 
-    return () => {};
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!wavesurfer || !isAudioLoaded) return;
+      mouseDownX = e.clientX;
+      mouseDownY = e.clientY;
+      mouseDownTime = Date.now();
+      isDragging = false;
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!wavesurfer || !isAudioLoaded) return;
+      const moveThreshold = 5;
+      const deltaX = Math.abs(e.clientX - mouseDownX);
+      const deltaY = Math.abs(e.clientY - mouseDownY);
+      if (deltaX > moveThreshold || deltaY > moveThreshold) {
+        isDragging = true;
+      }
+    };
+
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!wavesurfer || !isAudioLoaded) return;
+      const moveThreshold = 5;
+      const deltaX = Math.abs(e.clientX - mouseDownX);
+      const deltaY = Math.abs(e.clientY - mouseDownY);
+      const wasDragging = deltaX > moveThreshold || deltaY > moveThreshold;
+      const clickDuration = Date.now() - mouseDownTime;
+      const isClick = !wasDragging && !isDragging && clickDuration < 300;
+
+      if (isClick) {
+        const wrapper = wavesurfer.getWrapper();
+        if (wrapper) {
+          const rect = wrapper.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const width = rect.width;
+          if (width > 0 && x >= 0 && x <= width) {
+            const duration = wavesurfer.getDuration();
+            if (duration > 0) {
+              const progress = Math.max(0, Math.min(1, x / width));
+              const seekTime = progress * duration;
+              setCurrentTime(seekTime);
+              if (onSeek) {
+                onSeek(seekTime);
+              }
+              try {
+                wavesurfer.seekTo(progress);
+              } catch (err) {}
+            }
+          }
+        }
+      }
+
+      isDragging = false;
+    };
+
+    if (container) {
+      container.addEventListener("mousedown", handleMouseDown);
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener("mousedown", handleMouseDown);
+        window.removeEventListener("mousemove", handleMouseMove);
+        window.removeEventListener("mouseup", handleMouseUp);
+      }
+    };
   });
 
   createEffect(() => {

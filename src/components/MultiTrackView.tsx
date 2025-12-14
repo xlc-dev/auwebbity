@@ -39,6 +39,7 @@ interface TrackRowPropsWithCallback extends TrackRowProps {
   onWaveformReady?: (waveform: ReturnType<typeof useWaveform>, trackId: string) => void;
   onContainerRef?: (container: HTMLDivElement) => void;
   onSelectionCreated?: (trackId: string) => void;
+  onSeekAll?: (time: number) => void;
 }
 
 const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
@@ -86,6 +87,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     backgroundColor: props.track.backgroundColor,
     onSelectionCreated: props.onSelectionCreated,
     renderer: () => props.track.waveformRenderer || "bars",
+    onSeek: props.onSeekAll,
   });
 
   const trackWidth = createMemo(() => {
@@ -1158,6 +1160,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                           onWaveformReady={props.onWaveformReady}
                           onContainerRef={handleContainerRef}
                           onSelectionCreated={props.onSelectionCreated}
+                          onSeekAll={props.onSeekAll}
                           onDragStart={handleDragStart}
                           onDragEnd={handleDragEnd}
                           onDragOver={handleDragOver}
