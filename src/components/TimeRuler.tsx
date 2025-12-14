@@ -14,20 +14,54 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
   const [width, setWidth] = createSignal(0);
   const [selectingRepeatStart, setSelectingRepeatStart] = createSignal(false);
 
-  const duration = () => Math.max(...store.tracks.map((t) => t.duration), 0);
+  const duration = createMemo(() => {
+    const tracks = store.tracks;
+    return tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
+  });
+
+  const pixelsPerSecond = createMemo(() => {
+    const dur = duration();
+    if (dur <= 0) return 0;
+
+    const containerWidth = width();
+    if (containerWidth <= 0) return 0;
+
+    const zoom = store.zoom;
+    if (zoom <= 100) {
+      return containerWidth / dur;
+    }
+
+    return (containerWidth / dur) * (zoom / 100);
+  });
 
   const formatTime = (seconds: number): string => {
+    const pps = pixelsPerSecond();
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
 
-    if (mins === 0) {
-      if (seconds < 1) {
-        return `${seconds.toFixed(1)}`;
+    if (pps > 500) {
+      if (mins === 0) {
+        return `${seconds.toFixed(2)}s`;
       }
-      return `${secs.toFixed(secs < 10 ? 1 : 0)}`;
+      const secsStr = secs.toFixed(2);
+      return `${mins}:${secsStr.padStart(5, "0")}`;
+    } else if (pps > 200) {
+      if (mins === 0) {
+        return `${seconds.toFixed(1)}s`;
+      }
+      const secsStr = secs.toFixed(1);
+      return `${mins}:${secsStr.padStart(4, "0")}`;
+    } else if (pps > 100) {
+      if (mins === 0) {
+        return `${Math.floor(secs)}s`;
+      }
+      return `${mins}:${Math.floor(secs).toString().padStart(2, "0")}`;
+    } else {
+      if (mins === 0) {
+        return `${Math.floor(secs)}s`;
+      }
+      return `${mins}:${Math.floor(secs).toString().padStart(2, "0")}`;
     }
-
-    return `${mins}:${Math.floor(secs).toString().padStart(2, "0")}`;
   };
 
   const getInterval = (pixelsPerSecond: number): number => {
@@ -43,28 +77,49 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
   createEffect(() => {
     const container = props.containerRef();
-    if (!container) return;
+    if (!container) {
+      const checkContainer = () => {
+        const c = props.containerRef();
+        if (c) {
+          const scrollContainer = c.parentElement;
+          if (scrollContainer) {
+            const updateWidth = () => {
+              const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
+              if (w > 0) {
+                setWidth(w);
+              }
+            };
+            updateWidth();
+            const observer = new ResizeObserver(updateWidth);
+            observer.observe(scrollContainer);
+            return () => observer.disconnect();
+          }
+        }
+        return undefined;
+      };
+      const timeout = setTimeout(checkContainer, 0);
+      return () => clearTimeout(timeout);
+    }
 
     const scrollContainer = container.parentElement;
     if (!scrollContainer) return;
 
     const updateWidth = () => {
       const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
-      setWidth(w);
+      if (w > 0) {
+        setWidth(w);
+      }
     };
 
     updateWidth();
     const observer = new ResizeObserver(updateWidth);
     observer.observe(scrollContainer);
 
-    const checkWidth = () => {
+    const zoom = store.zoom;
+    const tracksLength = store.tracks.length;
+    if (zoom !== undefined || tracksLength !== undefined) {
       requestAnimationFrame(updateWidth);
-    };
-
-    store.zoom;
-    store.tracks.length;
-    store.currentTrackId;
-    checkWidth();
+    }
 
     return () => {
       observer.disconnect();
@@ -75,16 +130,15 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     const dur = duration();
     if (dur <= 0) return [];
 
-    const containerWidth = width();
-    if (containerWidth <= 0) return [];
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return [];
 
-    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
-    const timelineWidth = dur * pixelsPerSecond;
-    const interval = getInterval(pixelsPerSecond);
+    const timelineWidth = dur * pps;
+    const interval = getInterval(pps);
 
     const result: Array<{ time: number; position: number }> = [];
     for (let time = 0; time <= dur; time += interval) {
-      const position = time * pixelsPerSecond;
+      const position = time * pps;
       if (position <= timelineWidth) {
         result.push({ time, position });
       }
@@ -99,29 +153,38 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
   });
 
   const effectiveWidth = createMemo(() => {
-    const dur = duration();
-    if (dur <= 0) return 0;
-
     const containerWidth = width();
     if (containerWidth <= 0) return 0;
 
-    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
-    const timelineWidth = dur * pixelsPerSecond;
+    const zoom = store.zoom;
+    if (zoom <= 100) {
+      return containerWidth;
+    }
 
-    return Math.min(Math.ceil(timelineWidth), Math.ceil(containerWidth * (store.zoom / 100)));
+    const dur = duration();
+    if (dur <= 0) return containerWidth;
+
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return containerWidth;
+
+    const timelineWidth = dur * pps;
+    const calculatedWidth = Math.ceil(timelineWidth);
+
+    return Math.max(containerWidth, calculatedWidth);
   });
 
   const repeatMarkerPositions = createMemo(() => {
-    if (!store.repeatRegion) return null;
+    const repeatRegion = store.repeatRegion;
+    if (!repeatRegion) return null;
+
     const dur = duration();
     if (dur <= 0) return null;
 
-    const containerWidth = width();
-    if (containerWidth <= 0) return null;
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return null;
 
-    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
-    const startPos = store.repeatRegion.start * pixelsPerSecond;
-    const endPos = store.repeatRegion.end * pixelsPerSecond;
+    const startPos = repeatRegion.start * pps;
+    const endPos = repeatRegion.end * pps;
     return { start: startPos, end: endPos };
   });
 
@@ -134,11 +197,10 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
 
     const rect = target.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const containerWidth = width();
-    if (containerWidth <= 0) return null;
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return null;
 
-    const pixelsPerSecond = (containerWidth / dur) * (store.zoom / 100);
-    const timelineWidth = dur * pixelsPerSecond;
+    const timelineWidth = dur * pps;
     const progress = Math.max(0, Math.min(1, x / timelineWidth));
     return progress * dur;
   };

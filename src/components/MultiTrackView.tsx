@@ -89,14 +89,21 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   });
 
   const trackWidth = createMemo(() => {
-    const maxDur =
-      store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+    const tracks = store.tracks;
+    const maxDur = tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
     if (maxDur <= 0 || props.track.duration <= 0) return "100%";
     const width = containerWidth();
     if (width <= 0) return "100%";
+
+    if (store.zoom <= 100) {
+      return "100%";
+    }
+
     const pixelsPerSecond = (width / maxDur) * (store.zoom / 100);
     const trackWidthPx = props.track.duration * pixelsPerSecond;
-    return `${trackWidthPx}px`;
+    const maxWidth = 1000000;
+    const finalWidth = Math.min(trackWidthPx, maxWidth);
+    return `${Math.floor(finalWidth)}px`;
   });
 
   createEffect(() => {
@@ -114,9 +121,11 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     const observer = new ResizeObserver(updateWidth);
     observer.observe(scrollContainer);
 
-    store.zoom;
-    store.tracks.length;
-    updateWidth();
+    const zoom = store.zoom;
+    const tracksLength = store.tracks.length;
+    if (zoom !== undefined || tracksLength !== undefined) {
+      updateWidth();
+    }
 
     return () => observer.disconnect();
   });
@@ -181,9 +190,6 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     e.preventDefault();
     e.stopPropagation();
 
-    const target = e.target as HTMLElement;
-    const isThumb = target.hasAttribute("data-volume-thumb") || target.closest('[data-volume-thumb]');
-
     const rect = volumeSliderRef.getBoundingClientRect();
     if (rect && rect.width > 0) {
       const volume = calculateVolumeFromX(e.clientX, rect);
@@ -227,9 +233,6 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     if (!panSliderRef) return;
     e.preventDefault();
     e.stopPropagation();
-
-    const target = e.target as HTMLElement;
-    const isThumb = target.hasAttribute("data-pan-thumb") || target.closest('[data-pan-thumb]');
 
     const rect = panSliderRef.getBoundingClientRect();
     if (rect && rect.width > 0) {
@@ -385,13 +388,21 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                     <div class="mt-2 space-y-1.5">
                       <div>
                         <div class="flex items-center justify-center mb-0.5">
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Pan</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
+                            Pan
+                          </span>
                           <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-                            {props.track.pan === 0 ? "0%" : props.track.pan > 0 ? `${Math.round(props.track.pan * 100)}%` : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
+                            {props.track.pan === 0
+                              ? "0%"
+                              : props.track.pan > 0
+                                ? `${Math.round(props.track.pan * 100)}%`
+                                : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
                           </span>
                         </div>
                         <div class="flex items-center gap-1">
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">L</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                            L
+                          </span>
                           <div
                             ref={panSliderRef}
                             class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
@@ -413,18 +424,24 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                               }}
                             />
                           </div>
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">R</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                            R
+                          </span>
                         </div>
                       </div>
                       <div>
                         <div class="flex items-center justify-center mb-0.5">
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Vol</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
+                            Vol
+                          </span>
                           <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
                             {Math.round(props.track.volume * 100)}%
                           </span>
                         </div>
                         <div class="flex items-center gap-1">
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">0</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                            0
+                          </span>
                           <div
                             ref={volumeSliderRef}
                             class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
@@ -446,7 +463,9 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                               }}
                             />
                           </div>
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">100</span>
+                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                            100
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -482,13 +501,21 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                 <div class="mt-2 space-y-1.5">
                   <div>
                     <div class="flex items-center justify-center mb-0.5">
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Pan</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
+                        Pan
+                      </span>
                       <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-                        {props.track.pan === 0 ? "0%" : props.track.pan > 0 ? `${Math.round(props.track.pan * 100)}%` : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
+                        {props.track.pan === 0
+                          ? "0%"
+                          : props.track.pan > 0
+                            ? `${Math.round(props.track.pan * 100)}%`
+                            : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
                       </span>
                     </div>
                     <div class="flex items-center gap-1">
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">L</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                        L
+                      </span>
                       <div
                         ref={panSliderRef}
                         class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
@@ -510,18 +537,24 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                           }}
                         />
                       </div>
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">R</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                        R
+                      </span>
                     </div>
                   </div>
                   <div>
                     <div class="flex items-center justify-center mb-0.5">
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">Vol</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
+                        Vol
+                      </span>
                       <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
                         {Math.round(props.track.volume * 100)}%
                       </span>
                     </div>
                     <div class="flex items-center gap-1">
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">0</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                        0
+                      </span>
                       <div
                         ref={volumeSliderRef}
                         class="relative h-5 bg-[var(--color-bg)] border border-[var(--color-border)] rounded-sm cursor-pointer"
@@ -543,7 +576,9 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                           }}
                         />
                       </div>
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">100</span>
+                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
+                        100
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -801,10 +836,11 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
       <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
         <div
           ref={handleContainerRef}
-          class="min-h-[150px] sm:min-h-[180px] md:min-h-[200px] flex-shrink-0 [&_wave]:cursor-pointer [&>*]:overflow-visible [&_wave]:overflow-visible [&>*]:overflow-x-visible [&_wave]:overflow-x-visible"
+          class="min-h-[150px] sm:min-h-[180px] md:min-h-[200px] flex-shrink-0 [&_wave]:cursor-pointer"
           style={{
             width: trackWidth(),
             "background-color": props.track.backgroundColor || "transparent",
+            "min-width": trackWidth(),
           }}
           onClick={(e) => {
             if (!props.isCurrent) {
@@ -845,44 +881,49 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     }
   };
 
-  const maxDuration = createMemo(() => Math.max(...store.tracks.map((t) => t.duration), 0));
+  const maxDuration = createMemo(() => {
+    const tracks = store.tracks;
+    return tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
+  });
 
-  const playheadPosition = createMemo(() => {
+  const pixelsPerSecond = createMemo(() => {
     const container = mainContainerRef();
-    if (!container) return 0;
-
     const maxDur = maxDuration();
-    if (maxDur <= 0) return 0;
+    if (maxDur <= 0 || !container) return 0;
 
-    store.currentTime;
-    store.zoom;
     const rulerContainer = container.parentElement;
     if (!rulerContainer) return 0;
     const containerWidth = rulerContainer.offsetWidth || rulerContainer.clientWidth || 0;
     if (containerWidth <= 0) return 0;
 
-    const pixelsPerSecond = (containerWidth / maxDur) * (store.zoom / 100);
-    const fullTimelineWidth = maxDur * pixelsPerSecond;
-    const position = store.currentTime * pixelsPerSecond;
+    return (containerWidth / maxDur) * (store.zoom / 100);
+  });
+
+  const playheadPosition = createMemo(() => {
+    const maxDur = maxDuration();
+    if (maxDur <= 0) return 0;
+
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return 0;
+
+    const currentTime = store.currentTime;
+    const fullTimelineWidth = maxDur * pps;
+    const position = currentTime * pps;
     return Math.max(0, Math.min(fullTimelineWidth, position));
   });
 
   const repeatRegionPosition = createMemo(() => {
-    if (!store.repeatRegion) return null;
-    const container = mainContainerRef();
-    if (!container) return null;
+    const repeatRegion = store.repeatRegion;
+    if (!repeatRegion) return null;
 
     const maxDur = maxDuration();
     if (maxDur <= 0) return null;
 
-    const rulerContainer = container.parentElement;
-    if (!rulerContainer) return null;
-    const containerWidth = rulerContainer.offsetWidth || rulerContainer.clientWidth || 0;
-    if (containerWidth <= 0) return null;
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return null;
 
-    const pixelsPerSecond = (containerWidth / maxDur) * (store.zoom / 100);
-    const startPos = store.repeatRegion.start * pixelsPerSecond;
-    const endPos = store.repeatRegion.end * pixelsPerSecond;
+    const startPos = repeatRegion.start * pps;
+    const endPos = repeatRegion.end * pps;
     return { start: startPos, end: endPos };
   });
 
@@ -1049,17 +1090,11 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                   />
                 )}
               </Show>
-              <Show
-                when={
-                  store.tracks.length > 0 &&
-                  playheadPosition() >= 0 &&
-                  !(store.currentTime >= maxDuration() - 0.01 && !store.isPlaying)
-                }
-              >
+              <Show when={store.tracks.length > 0 && playheadPosition() >= 0}>
                 <div
                   class="absolute w-[3px] bg-white z-[20] pointer-events-none"
                   style={{
-                    left: `${sidebarWidth() + playheadPosition()}px`,
+                    left: `${sidebarWidth() + Math.floor(playheadPosition())}px`,
                     top: "0px",
                     height: `${store.tracks.length * 200}px`,
                   }}

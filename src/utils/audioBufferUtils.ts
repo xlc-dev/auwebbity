@@ -86,8 +86,6 @@ export function mixTracksWithVolume(
     const trackDuration = buffer.duration;
     const trackLength = Math.floor(Math.min(trackDuration, maxDuration) * sr);
 
-    // Calculate pan gains using equal-power panning
-    // pan: -1 (left) to 1 (right)
     const panValue = Math.max(-1, Math.min(1, pan));
     const leftGain = Math.cos((panValue + 1) * (Math.PI / 4));
     const rightGain = Math.sin((panValue + 1) * (Math.PI / 4));
@@ -97,17 +95,13 @@ export function mixTracksWithVolume(
       const sourceChannel = channel < trackChannels ? channel : trackChannels - 1;
       const sourceData = buffer.getChannelData(sourceChannel);
 
-      // Determine pan gain for this channel
       let channelGain = volume;
       if (maxChannels >= 2) {
         if (channel === 0) {
-          // Left channel
           channelGain = volume * leftGain;
         } else if (channel === 1) {
-          // Right channel
           channelGain = volume * rightGain;
         }
-        // For mono sources on stereo output, apply panning
         if (trackChannels === 1 && maxChannels >= 2) {
           if (channel === 0) {
             channelGain = volume * leftGain;

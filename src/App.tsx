@@ -7,13 +7,13 @@ import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { Spinner } from "./components/Spinner";
 import { useAudioStore, initializeStore } from "./stores/audioStore";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
-import { useWaveform } from "./hooks/useWaveform";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
 import { useFileImport } from "./hooks/useFileImport";
 import { useAudioOperations } from "./hooks/useAudioOperations";
 import { useToast } from "./hooks/useToast";
 import { audioOperations } from "./utils/audioOperations";
 import { getErrorMessage } from "./utils/errorUtils";
+import type { useWaveform } from "./hooks/useWaveform";
 
 export default function App() {
   const {
@@ -244,20 +244,23 @@ export default function App() {
 
   createEffect(() => {
     const currentTrackId = store.currentTrackId;
+    if (!currentTrackId) return;
+
     const map = waveformMap();
-    if (currentTrackId) {
-      const waveform = map.get(currentTrackId);
-      if (waveform) {
-        setWaveformRef(waveform);
-      }
+    const waveform = map.get(currentTrackId);
+    if (waveform) {
+      setWaveformRef(waveform);
     }
   });
 
   const [lastCurrentTime, setLastCurrentTime] = createSignal(store.currentTime);
   createEffect(() => {
-    if (store.repeatRegion && store.isPlaying) {
-      const { start, end } = store.repeatRegion;
-      const currentTime = store.currentTime;
+    const repeatRegion = store.repeatRegion;
+    const isPlaying = store.isPlaying;
+    const currentTime = store.currentTime;
+
+    if (repeatRegion && isPlaying) {
+      const { start, end } = repeatRegion;
       const prevTime = lastCurrentTime();
 
       const wasWithinRepeat = prevTime >= start - 0.01 && prevTime <= end + 0.01;
@@ -269,16 +272,17 @@ export default function App() {
 
       setLastCurrentTime(currentTime);
     } else {
-      setLastCurrentTime(store.currentTime);
+      setLastCurrentTime(currentTime);
     }
   });
 
   const playAllTracks = () => {
     const map = waveformMap();
-    const hasSoloedTracks = store.tracks.some((t) => t.soloed);
+    const tracks = store.tracks;
+    const hasSoloedTracks = tracks.some((t) => t.soloed);
 
     map.forEach((waveform, trackId) => {
-      const track = store.tracks.find((t) => t.id === trackId);
+      const track = tracks.find((t) => t.id === trackId);
       if (!track) return;
 
       const shouldPlay = hasSoloedTracks ? track.soloed : !track.muted;
@@ -307,8 +311,9 @@ export default function App() {
 
   const seekAllTracks = (time: number) => {
     const map = waveformMap();
+    const tracks = store.tracks;
     map.forEach((waveform, trackId) => {
-      const track = store.tracks.find((t) => t.id === trackId);
+      const track = tracks.find((t) => t.id === trackId);
       if (track && track.duration > 0) {
         const normalizedPosition = Math.max(0, Math.min(1, time / track.duration));
         waveform.seekTo(normalizedPosition);

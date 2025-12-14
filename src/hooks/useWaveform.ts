@@ -109,6 +109,117 @@ export const useWaveform = (
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
 
+  const disconnectNode = (node: AudioNode | null) => {
+    if (node) {
+      try {
+        node.disconnect();
+      } catch {}
+    }
+  };
+
+  const setupSplitterMergerPanning = (audioContext: AudioContext, gainNode: AudioNode) => {
+    try {
+      disconnectNode(upMixerNode);
+      upMixerNode = null;
+      disconnectNode(splitterNode);
+      splitterNode = null;
+      disconnectNode(mergerNode);
+      mergerNode = null;
+      disconnectNode(leftGainNode);
+      leftGainNode = null;
+      disconnectNode(rightGainNode);
+      rightGainNode = null;
+
+      const destination = audioContext.destination;
+
+      upMixerNode = audioContext.createGain();
+      upMixerNode.channelCount = 2;
+      upMixerNode.channelCountMode = "explicit";
+      upMixerNode.channelInterpretation = "speakers";
+
+      splitterNode = audioContext.createChannelSplitter(2);
+      mergerNode = audioContext.createChannelMerger(2);
+      leftGainNode = audioContext.createGain();
+      rightGainNode = audioContext.createGain();
+
+      if (gainNode.disconnect) {
+        try {
+          gainNode.disconnect();
+        } catch {}
+      }
+
+      gainNode.connect(upMixerNode);
+      upMixerNode.connect(splitterNode);
+      splitterNode.connect(leftGainNode, 0);
+      splitterNode.connect(rightGainNode, 1);
+      leftGainNode.connect(mergerNode, 0, 0);
+      rightGainNode.connect(mergerNode, 0, 1);
+      mergerNode.connect(destination);
+
+      if (trackId) {
+        const tracks = store.tracks;
+        const track = tracks.find((t) => t.id === trackId);
+        if (track) {
+          const pan = track.pan ?? 0;
+          const panValue = Math.max(-1, Math.min(1, isNaN(pan) || !isFinite(pan) ? 0 : pan));
+          leftGainNode.gain.value = panValue > 0 ? 1 - panValue : 1;
+          rightGainNode.gain.value = panValue > 0 ? 1 : 1 + panValue;
+        }
+      }
+    } catch (err) {}
+  };
+
+  const setupPanning = () => {
+    try {
+      if (isSettingUpPanning) {
+        return;
+      }
+      isSettingUpPanning = true;
+
+      if (!wavesurfer || !isAudioLoaded) {
+        isSettingUpPanning = false;
+        return;
+      }
+
+      const media = (wavesurfer as any).media;
+      const mediaElement = media instanceof HTMLAudioElement ? media : null;
+
+      if (!mediaElement) {
+        isSettingUpPanning = false;
+        return;
+      }
+
+      if (splitterNode && leftGainNode && rightGainNode && upMixerNode) {
+        isSettingUpPanning = false;
+        return;
+      }
+
+      if (!customAudioContext) {
+        customAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        if (customAudioContext.state === "suspended") {
+          customAudioContext.resume();
+        }
+      }
+
+      if (!customMediaSource) {
+        try {
+          customMediaSource = customAudioContext.createMediaElementSource(mediaElement);
+        } catch (sourceErr) {
+          if (sourceErr instanceof Error && sourceErr.message.includes("already connected")) {
+            isSettingUpPanning = false;
+            return;
+          }
+          throw sourceErr;
+        }
+      }
+
+      setupSplitterMergerPanning(customAudioContext, customMediaSource);
+      isSettingUpPanning = false;
+    } catch (err) {
+      isSettingUpPanning = false;
+    }
+  };
+
   const createWaveform = (
     container: HTMLDivElement,
     rendererType: WaveformRenderer
@@ -125,6 +236,7 @@ export const useWaveform = (
       normalize: true,
       interact: false,
       dragToSeek: false,
+      minPxPerSec: 1,
     };
 
     if (rendererType === "line") {
@@ -169,115 +281,6 @@ export const useWaveform = (
     regionsPlugin = waveformResult.regionsPlugin;
     currentRenderer = renderer;
 
-    const setupPanning = () => {
-        try {
-          if (isSettingUpPanning) {
-            return;
-          }
-          isSettingUpPanning = true;
-
-          if (!wavesurfer || !isAudioLoaded) {
-            isSettingUpPanning = false;
-            return;
-          }
-
-          const media = (wavesurfer as any).media;
-          const mediaElement = media instanceof HTMLAudioElement ? media : null;
-
-          if (!mediaElement) {
-            isSettingUpPanning = false;
-            return;
-          }
-
-          if (splitterNode && leftGainNode && rightGainNode && upMixerNode) {
-            isSettingUpPanning = false;
-            return;
-          }
-
-          if (!customAudioContext) {
-            customAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-          }
-
-          if (!customMediaSource) {
-            try {
-              customMediaSource = customAudioContext.createMediaElementSource(mediaElement);
-            } catch (sourceErr) {
-              if (sourceErr instanceof Error && sourceErr.message.includes("already connected")) {
-                isSettingUpPanning = false;
-                return;
-              }
-              throw sourceErr;
-            }
-          }
-
-          setupSplitterMergerPanning(customAudioContext, customMediaSource);
-          isSettingUpPanning = false;
-        } catch (err) {
-          isSettingUpPanning = false;
-        }
-      };
-
-    const disconnectNode = (node: AudioNode | null) => {
-      if (node) {
-        try {
-          node.disconnect();
-        } catch {}
-      }
-    };
-
-    const setupSplitterMergerPanning = (audioContext: AudioContext, gainNode: AudioNode) => {
-        try {
-          disconnectNode(upMixerNode);
-          upMixerNode = null;
-          disconnectNode(splitterNode);
-          splitterNode = null;
-          disconnectNode(mergerNode);
-          mergerNode = null;
-          disconnectNode(leftGainNode);
-          leftGainNode = null;
-          disconnectNode(rightGainNode);
-          rightGainNode = null;
-
-          const destination = audioContext.destination;
-
-          upMixerNode = audioContext.createGain();
-          upMixerNode.channelCount = 2;
-          upMixerNode.channelCountMode = "explicit";
-          upMixerNode.channelInterpretation = "speakers";
-
-          splitterNode = audioContext.createChannelSplitter(2);
-          mergerNode = audioContext.createChannelMerger(2);
-          leftGainNode = audioContext.createGain();
-          rightGainNode = audioContext.createGain();
-
-          if (gainNode.disconnect) {
-            try {
-              gainNode.disconnect();
-            } catch {}
-          }
-
-          gainNode.connect(upMixerNode);
-          upMixerNode.connect(splitterNode);
-          splitterNode.connect(leftGainNode, 0);
-          splitterNode.connect(rightGainNode, 1);
-          leftGainNode.connect(mergerNode, 0, 0);
-          rightGainNode.connect(mergerNode, 0, 1);
-          mergerNode.connect(destination);
-
-          if (trackId) {
-            const tracks = store.tracks;
-            const track = tracks.find((t) => t.id === trackId);
-            if (track) {
-              const pan = track.pan ?? 0;
-              const panValue = Math.max(-1, Math.min(1, isNaN(pan) || !isFinite(pan) ? 0 : pan));
-              leftGainNode.gain.value = panValue > 0 ? 1 - panValue : 1;
-              rightGainNode.gain.value = panValue > 0 ? 1 : 1 + panValue;
-            }
-          }
-        } catch (err) {
-        }
-      };
-
     wavesurfer.on("ready", () => {
       isAudioLoaded = true;
       if (dragSelectionCleanup) {
@@ -301,8 +304,7 @@ export const useWaveform = (
         const progress = Math.max(0, Math.min(1, currentTime / duration));
         try {
           wavesurfer.seekTo(progress);
-        } catch (err) {
-        }
+        } catch (err) {}
       }
 
       requestAnimationFrame(() => {
@@ -432,10 +434,11 @@ export const useWaveform = (
       if (duration <= 0) return;
 
       const currentTime = store.currentTime;
+      const isPlaying = store.isPlaying;
       const progress = Math.max(0, Math.min(1, currentTime / duration));
 
       const isWaveformPlaying = wavesurfer.isPlaying();
-      if (isWaveformPlaying && store.isPlaying && isCurrent) {
+      if (isWaveformPlaying && isPlaying && isCurrent) {
         const waveformTime = wavesurfer.getCurrentTime() || 0;
         const timeDiff = Math.abs(waveformTime - currentTime);
         if (timeDiff < 0.1) {
@@ -445,16 +448,13 @@ export const useWaveform = (
 
       try {
         wavesurfer.seekTo(progress);
-      } catch (err) {
-      }
+      } catch (err) {}
 
       if (!isCurrent) return;
 
-      if (store.isPlaying) {
+      if (isPlaying) {
         try {
-          const duration = wavesurfer.getDuration() || 0;
           if (duration > 0) {
-            const currentTime = store.currentTime;
             const clampedTime = Math.max(0, Math.min(duration, currentTime));
             const seekPosition = clampedTime / duration;
 
@@ -467,15 +467,13 @@ export const useWaveform = (
               wavesurfer.play();
             }
           }
-        } catch (err) {
-        }
+        } catch (err) {}
       } else {
         try {
           if (wavesurfer.isPlaying()) {
             wavesurfer.pause();
           }
-        } catch (err) {
-        }
+        } catch (err) {}
       }
     });
 
@@ -937,8 +935,7 @@ export const useWaveform = (
         requestAnimationFrame(() => {
           try {
             wavesurfer?.seekTo(progress);
-          } catch (err) {
-          }
+          } catch (err) {}
         });
       }
     } catch (err) {
@@ -955,6 +952,9 @@ export const useWaveform = (
   const play = () => {
     if (!wavesurfer || !isAudioLoaded) return;
     try {
+      if (customAudioContext && customAudioContext.state === "suspended") {
+        customAudioContext.resume();
+      }
       const duration = wavesurfer.getDuration();
       if (!duration || duration <= 0) return;
 
@@ -1074,14 +1074,16 @@ export const useWaveform = (
   };
 
   createEffect(() => {
-    if (!autoLoad) return;
-    const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
+    if (!autoLoad || !wavesurfer) return;
+
+    const currentTrackId = store.currentTrackId;
+    const tracks = store.tracks;
+    const currentTrack = currentTrackId ? tracks.find((t) => t.id === currentTrackId) : null;
     const audioUrl = currentTrack?.audioUrl;
-    const tracksLength = store.tracks.length;
-    if (!wavesurfer) return;
+
     if (audioUrl && currentAudioUrl !== audioUrl) {
       loadAudio(audioUrl);
-    } else if (!audioUrl && tracksLength === 0) {
+    } else if (!audioUrl && tracks.length === 0) {
       clearAudio();
     }
   });
@@ -1143,12 +1145,12 @@ export const useWaveform = (
 
   createEffect(() => {
     if (!wavesurfer || !isAudioLoaded) return;
-    backgroundColor;
 
+    const bgColor = backgroundColor;
     const wrapper = wavesurfer.getWrapper();
     if (!wrapper) return;
 
-    const colors = getWaveformColors(backgroundColor);
+    const colors = getWaveformColors(bgColor);
 
     try {
       const wavePaths = wrapper.querySelectorAll("wave > path");
