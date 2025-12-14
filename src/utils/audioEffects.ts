@@ -1,5 +1,6 @@
 import { audioOperations } from "./audioOperations";
-import { mergeAudioBuffers } from "./audioBufferUtils";
+import { mergeAudioBuffers } from "./audioBuffer";
+import { createAudioBuffer } from "./audioContext";
 
 export const audioEffects = {
   async normalize(buffer: AudioBuffer, startTime?: number, endTime?: number): Promise<AudioBuffer> {
@@ -28,12 +29,7 @@ export const audioEffects = {
   },
 
   async normalizeFull(buffer: AudioBuffer): Promise<AudioBuffer> {
-    const audioContext = new AudioContext();
-    const newBuffer = audioContext.createBuffer(
-      buffer.numberOfChannels,
-      buffer.length,
-      buffer.sampleRate
-    );
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
     let peak = 0;
     for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
@@ -98,12 +94,7 @@ export const audioEffects = {
   },
 
   async amplifyFull(buffer: AudioBuffer, gain: number): Promise<AudioBuffer> {
-    const audioContext = new AudioContext();
-    const newBuffer = audioContext.createBuffer(
-      buffer.numberOfChannels,
-      buffer.length,
-      buffer.sampleRate
-    );
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
     for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
       const sourceData = buffer.getChannelData(channel);
@@ -127,8 +118,7 @@ export const audioEffects = {
 
     const { before, after } = await audioOperations.cut(buffer, start, end);
     const silenceLength = Math.floor((end - start) * buffer.sampleRate);
-    const audioContext = new AudioContext();
-    const silenceBuffer = audioContext.createBuffer(
+    const silenceBuffer = createAudioBuffer(
       buffer.numberOfChannels,
       Math.max(1, silenceLength),
       buffer.sampleRate
@@ -168,12 +158,7 @@ export const audioEffects = {
   },
 
   async reverseFull(buffer: AudioBuffer): Promise<AudioBuffer> {
-    const audioContext = new AudioContext();
-    const newBuffer = audioContext.createBuffer(
-      buffer.numberOfChannels,
-      buffer.length,
-      buffer.sampleRate
-    );
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
     for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
       const sourceData = buffer.getChannelData(channel);
@@ -218,12 +203,7 @@ export const audioEffects = {
   },
 
   async fadeInFull(buffer: AudioBuffer, fadeDuration: number): Promise<AudioBuffer> {
-    const audioContext = new AudioContext();
-    const newBuffer = audioContext.createBuffer(
-      buffer.numberOfChannels,
-      buffer.length,
-      buffer.sampleRate
-    );
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
     const fadeSamples = Math.floor(fadeDuration * buffer.sampleRate);
     const fadeLength = Math.min(fadeSamples, buffer.length);
@@ -276,12 +256,7 @@ export const audioEffects = {
   },
 
   async fadeOutFull(buffer: AudioBuffer, fadeDuration: number): Promise<AudioBuffer> {
-    const audioContext = new AudioContext();
-    const newBuffer = audioContext.createBuffer(
-      buffer.numberOfChannels,
-      buffer.length,
-      buffer.sampleRate
-    );
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
     const fadeSamples = Math.floor(fadeDuration * buffer.sampleRate);
     const fadeLength = Math.min(fadeSamples, buffer.length);

@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
 import { audioOperations } from "../utils/audioOperations";
-import { mergeAudioBuffers } from "../utils/audioBufferUtils";
+import { mergeAudioBuffers } from "../utils/audioBuffer";
 import { audioEffects } from "../utils/audioEffects";
 
 export const useAudioOperations = () => {

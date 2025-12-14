@@ -1,11 +1,12 @@
+import { createAudioBuffer } from "./audioContext";
+
 export const audioOperations = {
   async copy(audioBuffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> {
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
     const endSample = Math.floor(endTime * audioBuffer.sampleRate);
     const length = Math.max(1, endSample - startSample);
 
-    const audioContext = new AudioContext();
-    const newBuffer = audioContext.createBuffer(
+    const newBuffer = createAudioBuffer(
       audioBuffer.numberOfChannels,
       length,
       audioBuffer.sampleRate
@@ -29,17 +30,16 @@ export const audioOperations = {
   ): Promise<{ before: AudioBuffer; after: AudioBuffer }> {
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
     const endSample = Math.floor(endTime * audioBuffer.sampleRate);
-    const audioContext = new AudioContext();
 
     const beforeLength = Math.max(1, startSample);
-    const beforeBuffer = audioContext.createBuffer(
+    const beforeBuffer = createAudioBuffer(
       audioBuffer.numberOfChannels,
       beforeLength,
       audioBuffer.sampleRate
     );
 
     const afterLength = Math.max(1, audioBuffer.length - endSample);
-    const afterBuffer = audioContext.createBuffer(
+    const afterBuffer = createAudioBuffer(
       audioBuffer.numberOfChannels,
       afterLength,
       audioBuffer.sampleRate
@@ -68,10 +68,9 @@ export const audioOperations = {
     insertTime: number
   ): Promise<AudioBuffer> {
     const insertSample = Math.floor(insertTime * originalBuffer.sampleRate);
-    const audioContext = new AudioContext();
     const newLength = originalBuffer.length + clipboardBuffer.length;
 
-    const newBuffer = audioContext.createBuffer(
+    const newBuffer = createAudioBuffer(
       Math.max(originalBuffer.numberOfChannels, clipboardBuffer.numberOfChannels),
       newLength,
       originalBuffer.sampleRate
@@ -187,18 +186,17 @@ export const audioOperations = {
     splitTime: number
   ): Promise<{ left: AudioBuffer; right: AudioBuffer }> {
     const splitSample = Math.floor(splitTime * audioBuffer.sampleRate);
-    const audioContext = new AudioContext();
 
     const leftLength = Math.max(1, splitSample);
     const rightLength = Math.max(1, audioBuffer.length - splitSample);
 
-    const leftBuffer = audioContext.createBuffer(
+    const leftBuffer = createAudioBuffer(
       audioBuffer.numberOfChannels,
       leftLength,
       audioBuffer.sampleRate
     );
 
-    const rightBuffer = audioContext.createBuffer(
+    const rightBuffer = createAudioBuffer(
       audioBuffer.numberOfChannels,
       rightLength,
       audioBuffer.sampleRate

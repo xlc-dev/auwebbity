@@ -12,7 +12,7 @@ import { useAudioStore, type WaveformRenderer } from "../stores/audioStore";
 import { useWaveform } from "../hooks/useWaveform";
 import { TimeRuler } from "./TimeRuler";
 import { Tooltip } from "./Tooltip";
-import { formatTime } from "../utils/timeUtils";
+import { formatTime } from "../utils/time";
 
 interface TrackRowProps {
   track: import("../stores/audioStore").AudioTrack;
@@ -92,7 +92,11 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
 
   const trackWidth = createMemo(() => {
     const tracks = store.tracks;
-    const maxDur = tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
+    if (tracks.length === 0) return "100%";
+    let maxDur = 0;
+    for (const track of tracks) {
+      if (track.duration > maxDur) maxDur = track.duration;
+    }
     if (maxDur <= 0 || props.track.duration <= 0) return "100%";
     const width = containerWidth();
     if (width <= 0) return "100%";
@@ -885,7 +889,12 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
 
   const maxDuration = createMemo(() => {
     const tracks = store.tracks;
-    return tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
+    if (tracks.length === 0) return 0;
+    let max = 0;
+    for (const track of tracks) {
+      if (track.duration > max) max = track.duration;
+    }
+    return max;
   });
 
   const pixelsPerSecond = createMemo(() => {

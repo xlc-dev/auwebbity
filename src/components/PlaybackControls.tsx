@@ -1,6 +1,6 @@
 import { Component, onCleanup, onMount } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
-import { formatTime } from "../utils/timeUtils";
+import { formatTime } from "../utils/time";
 import { Button } from "./Button";
 
 interface PlaybackControlsProps {

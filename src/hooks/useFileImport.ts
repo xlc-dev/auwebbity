@@ -1,5 +1,6 @@
 import { createSignal } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
+import { getAudioContext } from "../utils/audioContext";
 
 export const useFileImport = () => {
   const { addTrack } = useAudioStore();
@@ -7,7 +8,7 @@ export const useFileImport = () => {
 
   const processFile = async (file: File) => {
     const audioUrl = URL.createObjectURL(file);
-    const audioContext = new AudioContext();
+    const audioContext = getAudioContext();
     const arrayBuffer = await file.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 

@@ -1,7 +1,8 @@
 import { createStore } from "solid-js/store";
 import { audioOperations } from "../utils/audioOperations";
-import { cloneAudioBuffer } from "../utils/audioBufferUtils";
-import { exportProject, importProject, downloadProject } from "../utils/projectUtils";
+import { cloneAudioBuffer } from "../utils/audioBuffer";
+import { exportProject, importProject, downloadProject } from "../utils/project";
+import { getAudioContext } from "../utils/audioContext";
 
 export interface AudioTrack {
   id: string;
@@ -143,7 +144,7 @@ async function loadAudioBuffer(id: string): Promise<AudioBuffer | null> {
     return null;
   }
 
-  const audioContext = new AudioContext();
+  const audioContext = getAudioContext();
   const bufferLength = Math.max(1, result.length);
   const audioBuffer = audioContext.createBuffer(
     result.numberOfChannels,

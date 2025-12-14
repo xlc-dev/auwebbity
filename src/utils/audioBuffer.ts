@@ -1,6 +1,7 @@
+import { createAudioBuffer } from "./audioContext";
+
 export function cloneAudioBuffer(audioBuffer: AudioBuffer): AudioBuffer {
-  const audioContext = new AudioContext();
-  const clonedBuffer = audioContext.createBuffer(
+  const clonedBuffer = createAudioBuffer(
     audioBuffer.numberOfChannels,
     audioBuffer.length,
     audioBuffer.sampleRate
@@ -21,9 +22,8 @@ export function mergeAudioBuffers(
   numberOfChannels: number,
   sampleRate: number
 ): AudioBuffer {
-  const audioContext = new AudioContext();
   const newLength = Math.max(1, before.length + after.length);
-  const newBuffer = audioContext.createBuffer(numberOfChannels, newLength, sampleRate);
+  const newBuffer = createAudioBuffer(numberOfChannels, newLength, sampleRate);
 
   for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
     const newData = newBuffer.getChannelData(channel);
@@ -63,8 +63,7 @@ export function mixTracksWithVolume(
     const firstTrack = validTracks[0];
     if (!firstTrack?.audioBuffer) return null;
     const sr = sampleRate ?? firstTrack.audioBuffer.sampleRate;
-    const audioContext = new AudioContext();
-    return audioContext.createBuffer(2, Math.floor(sr * 0.1), sr);
+    return createAudioBuffer(2, Math.floor(sr * 0.1), sr);
   }
 
   const firstTrack = tracksToMix[0]?.audioBuffer;
@@ -74,8 +73,7 @@ export function mixTracksWithVolume(
   const maxLength = Math.floor(maxDuration * sr);
   const maxChannels = Math.max(...tracksToMix.map((t) => t.audioBuffer!.numberOfChannels));
 
-  const audioContext = new AudioContext();
-  const mixedBuffer = audioContext.createBuffer(maxChannels, maxLength, sr);
+  const mixedBuffer = createAudioBuffer(maxChannels, maxLength, sr);
 
   for (const track of tracksToMix) {
     const buffer = track.audioBuffer!;

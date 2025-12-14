@@ -1,7 +1,8 @@
 import { createSignal, onCleanup } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
-import { getErrorMessage } from "../utils/errorUtils";
-import { formatDateForFilename } from "../utils/dateUtils";
+import { getErrorMessage } from "../utils/error";
+import { formatDateForFilename } from "../utils/date";
+import { getAudioContext } from "../utils/audioContext";
 
 function stopMediaStream(stream: MediaStream): void {
   stream.getTracks().forEach((track) => track.stop());
@@ -70,7 +71,7 @@ export const useAudioRecorder = () => {
           const audioBlob = new Blob(audioChunks, { type: selectedMimeType });
           const audioUrl = URL.createObjectURL(audioBlob);
 
-          const audioContext = new AudioContext();
+          const audioContext = getAudioContext();
           const arrayBuffer = await audioBlob.arrayBuffer();
           const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 

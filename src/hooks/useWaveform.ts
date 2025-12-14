@@ -3,7 +3,7 @@ import WaveSurfer from "wavesurfer.js";
 import RegionsPlugin from "wavesurfer.js/dist/plugins/regions.esm.js";
 import SpectrogramPlugin from "wavesurfer.js/dist/plugins/spectrogram.esm.js";
 import { useAudioStore, type WaveformRenderer } from "../stores/audioStore";
-import { isAbortError } from "../utils/errorUtils";
+import { isAbortError } from "../utils/error";
 
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -114,6 +114,61 @@ export const useWaveform = (
   let currentRenderer: WaveformRenderer = getRenderer();
 
   const { store, setSelection, setCurrentTime, setPlaying } = useAudioStore();
+
+  const handleTimeUpdate = (time: number) => {
+    if (isSeeking || !wavesurfer) return;
+    const isWaveformPlaying = wavesurfer.isPlaying();
+    if (!isWaveformPlaying && !store.isPlaying) return;
+    try {
+      const tracks = store.tracks;
+      if (tracks.length === 0) {
+        setCurrentTime(time);
+        return;
+      }
+      let maxDur = 0;
+      for (const track of tracks) {
+        if (track.duration > maxDur) maxDur = track.duration;
+      }
+      if (maxDur > 0) {
+        const clampedTime = Math.min(time, maxDur);
+        const timeToUse = isWaveformPlaying
+          ? Math.min(Math.max(clampedTime, store.currentTime), maxDur)
+          : Math.min(store.currentTime, maxDur);
+
+        if (store.repeatRegion && isWaveformPlaying) {
+          const { start, end } = store.repeatRegion;
+          const isWithinRepeatRegion = timeToUse >= start - 0.01 && timeToUse <= end + 0.01;
+          if (isWithinRepeatRegion && timeToUse >= end - 0.01) {
+            setCurrentTime(start);
+            const duration = wavesurfer.getDuration();
+            if (duration > 0) {
+              const seekPosition = start / duration;
+              try {
+                wavesurfer.seekTo(seekPosition);
+              } catch {}
+            }
+            return;
+          }
+        }
+
+        if (timeToUse >= maxDur - 0.01) {
+          setCurrentTime(maxDur);
+          if (isCurrent) {
+            setPlaying(false);
+          }
+        } else {
+          const finalTime = isWaveformPlaying
+            ? Math.min(clampedTime, maxDur)
+            : Math.min(timeToUse, maxDur);
+          setCurrentTime(finalTime);
+        }
+      } else {
+        setCurrentTime(time);
+      }
+    } catch {
+      setCurrentTime(time);
+    }
+  };
 
   const disconnectNode = (node: AudioNode | null) => {
     if (node) {
@@ -370,8 +425,8 @@ export const useWaveform = (
 
     wavesurfer.on("finish", () => {
       try {
-        const maxDur =
-          store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+        const tracks = store.tracks;
+        const maxDur = tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
         if (maxDur > 0) {
           const trackDuration = wavesurfer?.getDuration() || 0;
           setCurrentTime(Math.max(store.currentTime, trackDuration));
@@ -385,53 +440,7 @@ export const useWaveform = (
       } catch {}
     });
 
-    wavesurfer.on("timeupdate", (time) => {
-      if (isSeeking) return;
-      const isWaveformPlaying = wavesurfer?.isPlaying() ?? false;
-      if (!isWaveformPlaying && !store.isPlaying) return;
-      try {
-        const maxDur =
-          store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
-        if (maxDur > 0) {
-          const clampedTime = Math.min(time, maxDur);
-          const timeToUse = isWaveformPlaying
-            ? Math.min(Math.max(clampedTime, store.currentTime), maxDur)
-            : Math.min(store.currentTime, maxDur);
-
-          if (store.repeatRegion && isWaveformPlaying) {
-            const { start, end } = store.repeatRegion;
-            const isWithinRepeatRegion = timeToUse >= start - 0.01 && timeToUse <= end + 0.01;
-            if (isWithinRepeatRegion && timeToUse >= end - 0.01) {
-              setCurrentTime(start);
-              const duration = wavesurfer?.getDuration() || 0;
-              if (duration > 0) {
-                const seekPosition = start / duration;
-                try {
-                  wavesurfer?.seekTo(seekPosition);
-                } catch {}
-              }
-              return;
-            }
-          }
-
-          if (timeToUse >= maxDur - 0.01) {
-            setCurrentTime(maxDur);
-            if (isCurrent) {
-              setPlaying(false);
-            }
-          } else {
-            const finalTime = isWaveformPlaying
-              ? Math.min(clampedTime, maxDur)
-              : Math.min(timeToUse, maxDur);
-            setCurrentTime(finalTime);
-          }
-        } else {
-          setCurrentTime(time);
-        }
-      } catch {
-        setCurrentTime(time);
-      }
-    });
+    wavesurfer.on("timeupdate", handleTimeUpdate);
 
     createEffect(() => {
       if (!wavesurfer || !isAudioLoaded) return;
@@ -750,53 +759,7 @@ export const useWaveform = (
       }
     });
 
-    wavesurfer.on("timeupdate", (time) => {
-      if (isSeeking) return;
-      const isWaveformPlaying = wavesurfer?.isPlaying() ?? false;
-      if (!isWaveformPlaying && !store.isPlaying) return;
-      try {
-        const maxDur =
-          store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
-        if (maxDur > 0) {
-          const clampedTime = Math.min(time, maxDur);
-          const timeToUse = isWaveformPlaying
-            ? Math.min(Math.max(clampedTime, store.currentTime), maxDur)
-            : Math.min(store.currentTime, maxDur);
-
-          if (store.repeatRegion && isWaveformPlaying) {
-            const { start, end } = store.repeatRegion;
-            const isWithinRepeatRegion = timeToUse >= start - 0.01 && timeToUse <= end + 0.01;
-            if (isWithinRepeatRegion && timeToUse >= end - 0.01) {
-              setCurrentTime(start);
-              const duration = wavesurfer?.getDuration() || 0;
-              if (duration > 0) {
-                const seekPosition = start / duration;
-                try {
-                  wavesurfer?.seekTo(seekPosition);
-                } catch {}
-              }
-              return;
-            }
-          }
-
-          if (timeToUse >= maxDur - 0.01) {
-            setCurrentTime(maxDur);
-            if (isCurrent) {
-              setPlaying(false);
-            }
-          } else {
-            const finalTime = isWaveformPlaying
-              ? Math.min(clampedTime, maxDur)
-              : Math.min(timeToUse, maxDur);
-            setCurrentTime(finalTime);
-          }
-        } else {
-          setCurrentTime(time);
-        }
-      } catch {
-        setCurrentTime(time);
-      }
-    });
+    wavesurfer.on("timeupdate", handleTimeUpdate);
 
     wavesurfer.on("seeking", (time) => {
       if (seekingTimeoutId) {
@@ -1029,8 +992,8 @@ export const useWaveform = (
       const duration = wavesurfer.getDuration();
       if (!duration || duration <= 0) return;
 
-      const maxDur =
-        store.tracks.length > 0 ? Math.max(...store.tracks.map((t) => t.duration), 0) : 0;
+      const tracks = store.tracks;
+      const maxDur = tracks.length > 0 ? Math.max(...tracks.map((t) => t.duration), 0) : 0;
 
       let currentTime = store.currentTime;
       if (maxDur > 0 && currentTime >= maxDur - 0.01) {
@@ -1167,7 +1130,9 @@ export const useWaveform = (
     const container = containerRef();
     if (!container) return;
 
-    const maxDuration = Math.max(...store.tracks.map((t) => t.duration), 0);
+    const tracks = store.tracks;
+    if (tracks.length === 0) return;
+    const maxDuration = Math.max(...tracks.map((t) => t.duration), 0);
     if (maxDuration <= 0) return;
 
     const containerWidth =
@@ -1290,10 +1255,7 @@ export const useWaveform = (
     if (!wavesurfer || !trackId || !isAudioLoaded) return;
 
     const tracks = store.tracks;
-    const trackIndex = tracks.findIndex((t) => t.id === trackId);
-    if (trackIndex === -1) return;
-
-    const track = tracks[trackIndex];
+    const track = tracks.find((t) => t.id === trackId);
     if (!track) return;
 
     const volume = track.volume;

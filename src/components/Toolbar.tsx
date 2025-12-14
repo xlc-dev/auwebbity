@@ -7,7 +7,7 @@ import { ExportMenu } from "./ExportMenu";
 import { Tooltip } from "./Tooltip";
 import { useAudioStore } from "../stores/audioStore";
 import { useAudioRecorder } from "../hooks/useAudioRecorder";
-import { formatTime } from "../utils/timeUtils";
+import { formatTime } from "../utils/time";
 
 interface ToolbarProps {
   waveform?: ReturnType<typeof import("../hooks/useWaveform").useWaveform>;

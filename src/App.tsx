@@ -12,7 +12,7 @@ import { useFileImport } from "./hooks/useFileImport";
 import { useAudioOperations } from "./hooks/useAudioOperations";
 import { useToast } from "./hooks/useToast";
 import { audioOperations } from "./utils/audioOperations";
-import { getErrorMessage } from "./utils/errorUtils";
+import { getErrorMessage } from "./utils/error";
 import type { useWaveform } from "./hooks/useWaveform";
 
 export default function App() {
@@ -169,7 +169,7 @@ export default function App() {
 
     setIsExporting(true);
     try {
-      const { mixTracksWithVolume } = await import("./utils/audioBufferUtils");
+      const { mixTracksWithVolume } = await import("./utils/audioBuffer");
       const sampleRate = store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
       const mixedBuffer = mixTracksWithVolume(
         store.tracks.map((t) => ({
@@ -279,10 +279,11 @@ export default function App() {
   const playAllTracks = () => {
     const map = waveformMap();
     const tracks = store.tracks;
+    const trackMap = new Map(tracks.map((t) => [t.id, t]));
     const hasSoloedTracks = tracks.some((t) => t.soloed);
 
     map.forEach((waveform, trackId) => {
-      const track = tracks.find((t) => t.id === trackId);
+      const track = trackMap.get(trackId);
       if (!track) return;
 
       const shouldPlay = hasSoloedTracks ? track.soloed : !track.muted;
@@ -312,8 +313,9 @@ export default function App() {
   const seekAllTracks = (time: number) => {
     const map = waveformMap();
     const tracks = store.tracks;
+    const trackMap = new Map(tracks.map((t) => [t.id, t]));
     map.forEach((waveform, trackId) => {
-      const track = tracks.find((t) => t.id === trackId);
+      const track = trackMap.get(trackId);
       if (track && track.duration > 0) {
         const normalizedPosition = Math.max(0, Math.min(1, time / track.duration));
         waveform.seekTo(normalizedPosition);
