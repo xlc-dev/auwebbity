@@ -32,6 +32,13 @@ interface ToolbarProps {
   onReverse: (scope: "all" | "track" | "selection") => void;
   onFadeIn: (scope: "all" | "track" | "selection") => void;
   onFadeOut: (scope: "all" | "track" | "selection") => void;
+  onReverb: (roomSize: number, wetLevel: number, scope: "all" | "track" | "selection") => void;
+  onDelay: (
+    delayTime: number,
+    feedback: number,
+    wetLevel: number,
+    scope: "all" | "track" | "selection"
+  ) => void;
   onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
@@ -232,6 +239,8 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             onReverse={props.onReverse}
             onFadeIn={props.onFadeIn}
             onFadeOut={props.onFadeOut}
+            onReverb={props.onReverb}
+            onDelay={props.onDelay}
             disabled={props.isExporting || !getCurrentTrack()}
           />
         </div>

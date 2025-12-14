@@ -255,6 +255,29 @@ export const useAudioOperations = () => {
     );
   };
 
+  const handleReverb = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    roomSize: number,
+    wetLevel: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.reverb(buffer, roomSize, wetLevel, start, end)
+    );
+  };
+
+  const handleDelay = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    delayTime: number,
+    feedback: number,
+    wetLevel: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.delay(buffer, delayTime, feedback, wetLevel, start, end)
+    );
+  };
+
   return {
     handleCut,
     handleCopy,
@@ -266,6 +289,8 @@ export const useAudioOperations = () => {
     handleReverse,
     handleFadeIn,
     handleFadeOut,
+    handleReverb,
+    handleDelay,
     isLoading,
   };
 };

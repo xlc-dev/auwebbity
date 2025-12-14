@@ -52,6 +52,8 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
   const [showColorPicker, setShowColorPicker] = createSignal(false);
   const [isDraggingVolume, setIsDraggingVolume] = createSignal(false);
   const [isDraggingPan, setIsDraggingPan] = createSignal(false);
+  const [editingVolume, setEditingVolume] = createSignal<string | null>(null);
+  const [editingPan, setEditingPan] = createSignal<string | null>(null);
   const { store, setAudioStore } = useAudioStore();
   const [containerWidth, setContainerWidth] = createSignal(0);
 
@@ -397,13 +399,57 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                           <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
                             Pan
                           </span>
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-                            {props.track.pan === 0
-                              ? "0%"
-                              : props.track.pan > 0
-                                ? `${Math.round(props.track.pan * 100)}%`
-                                : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
-                          </span>
+                          <Show
+                            when={editingPan() !== null}
+                            fallback={
+                              <span
+                                class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium cursor-text hover:text-[var(--color-text)] transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const panPercent = Math.round(props.track.pan * 100);
+                                  setEditingPan(`${panPercent}`);
+                                }}
+                              >
+                                {props.track.pan === 0
+                                  ? "0%"
+                                  : props.track.pan > 0
+                                    ? `${Math.round(props.track.pan * 100)}%`
+                                    : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
+                              </span>
+                            }
+                          >
+                            <input
+                              type="number"
+                              value={editingPan() ?? ""}
+                              onInput={(e) => {
+                                const val = e.currentTarget.value;
+                                const num = parseFloat(val);
+                                if (val === "" || (!isNaN(num) && num >= -100 && num <= 100)) {
+                                  setEditingPan(val);
+                                }
+                              }}
+                              onBlur={() => {
+                                const val = editingPan();
+                                if (val !== null) {
+                                  const num = parseFloat(val);
+                                  if (!isNaN(num) && num >= -100 && num <= 100) {
+                                    props.onPanChange?.(num / 100);
+                                  }
+                                  setEditingPan(null);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                } else if (e.key === "Escape") {
+                                  setEditingPan(null);
+                                }
+                              }}
+                              class="w-12 text-[0.625rem] tabular-nums font-medium text-[var(--color-text)] bg-[var(--color-bg)] border border-[var(--color-primary)] rounded px-1 text-center focus:outline-none"
+                              autofocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </Show>
                         </div>
                         <div class="flex items-center gap-1">
                           <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
@@ -440,9 +486,52 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                           <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
                             Vol
                           </span>
-                          <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-                            {Math.round(props.track.volume * 100)}%
-                          </span>
+                          <Show
+                            when={editingVolume() !== null}
+                            fallback={
+                              <span
+                                class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium cursor-text hover:text-[var(--color-text)] transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingVolume(`${Math.round(props.track.volume * 100)}`);
+                                }}
+                              >
+                                {Math.round(props.track.volume * 100)}%
+                              </span>
+                            }
+                          >
+                            <input
+                              type="number"
+                              value={editingVolume() ?? ""}
+                              onInput={(e) => {
+                                const val = e.currentTarget.value;
+                                const num = parseFloat(val);
+                                if (val === "" || (!isNaN(num) && num >= 0 && num <= 100)) {
+                                  setEditingVolume(val);
+                                }
+                              }}
+                              onBlur={() => {
+                                const val = editingVolume();
+                                if (val !== null) {
+                                  const num = parseFloat(val);
+                                  if (!isNaN(num) && num >= 0 && num <= 100) {
+                                    props.onVolumeChange?.(num / 100);
+                                  }
+                                  setEditingVolume(null);
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                } else if (e.key === "Escape") {
+                                  setEditingVolume(null);
+                                }
+                              }}
+                              class="w-12 text-[0.625rem] tabular-nums font-medium text-[var(--color-text)] bg-[var(--color-bg)] border border-[var(--color-primary)] rounded px-1 text-center focus:outline-none"
+                              autofocus
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </Show>
                         </div>
                         <div class="flex items-center gap-1">
                           <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
@@ -510,13 +599,57 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                       <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
                         Pan
                       </span>
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-                        {props.track.pan === 0
-                          ? "0%"
-                          : props.track.pan > 0
-                            ? `${Math.round(props.track.pan * 100)}%`
-                            : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
-                      </span>
+                      <Show
+                        when={editingPan() !== null}
+                        fallback={
+                          <span
+                            class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium cursor-text hover:text-[var(--color-text)] transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const panPercent = Math.round(props.track.pan * 100);
+                              setEditingPan(`${panPercent}`);
+                            }}
+                          >
+                            {props.track.pan === 0
+                              ? "0%"
+                              : props.track.pan > 0
+                                ? `${Math.round(props.track.pan * 100)}%`
+                                : `${Math.round(Math.abs(props.track.pan) * 100)}%`}
+                          </span>
+                        }
+                      >
+                        <input
+                          type="number"
+                          value={editingPan() ?? ""}
+                          onInput={(e) => {
+                            const val = e.currentTarget.value;
+                            const num = parseFloat(val);
+                            if (val === "" || (!isNaN(num) && num >= -100 && num <= 100)) {
+                              setEditingPan(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            const val = editingPan();
+                            if (val !== null) {
+                              const num = parseFloat(val);
+                              if (!isNaN(num) && num >= -100 && num <= 100) {
+                                props.onPanChange?.(num / 100);
+                              }
+                              setEditingPan(null);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            } else if (e.key === "Escape") {
+                              setEditingPan(null);
+                            }
+                          }}
+                          class="w-12 text-[0.625rem] tabular-nums font-medium text-[var(--color-text)] bg-[var(--color-bg)] border border-[var(--color-primary)] rounded px-1 text-center focus:outline-none"
+                          autofocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Show>
                     </div>
                     <div class="flex items-center gap-1">
                       <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">
@@ -553,9 +686,52 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                       <span class="text-[0.625rem] text-[var(--color-text-secondary)] font-medium mr-1">
                         Vol
                       </span>
-                      <span class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium">
-                        {Math.round(props.track.volume * 100)}%
-                      </span>
+                      <Show
+                        when={editingVolume() !== null}
+                        fallback={
+                          <span
+                            class="text-[0.625rem] text-[var(--color-text-secondary)] tabular-nums font-medium cursor-text hover:text-[var(--color-text)] transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingVolume(`${Math.round(props.track.volume * 100)}`);
+                            }}
+                          >
+                            {Math.round(props.track.volume * 100)}%
+                          </span>
+                        }
+                      >
+                        <input
+                          type="number"
+                          value={editingVolume() ?? ""}
+                          onInput={(e) => {
+                            const val = e.currentTarget.value;
+                            const num = parseFloat(val);
+                            if (val === "" || (!isNaN(num) && num >= 0 && num <= 100)) {
+                              setEditingVolume(val);
+                            }
+                          }}
+                          onBlur={() => {
+                            const val = editingVolume();
+                            if (val !== null) {
+                              const num = parseFloat(val);
+                              if (!isNaN(num) && num >= 0 && num <= 100) {
+                                props.onVolumeChange?.(num / 100);
+                              }
+                              setEditingVolume(null);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.currentTarget.blur();
+                            } else if (e.key === "Escape") {
+                              setEditingVolume(null);
+                            }
+                          }}
+                          class="w-12 text-[0.625rem] tabular-nums font-medium text-[var(--color-text)] bg-[var(--color-bg)] border border-[var(--color-primary)] rounded px-1 text-center focus:outline-none"
+                          autofocus
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </Show>
                     </div>
                     <div class="flex items-center gap-1">
                       <span class="text-[0.625rem] text-[var(--color-text-secondary)] w-4 text-center">

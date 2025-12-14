@@ -463,6 +463,31 @@ export default function App() {
             "Failed to fade out"
           )
         }
+        onReverb={(roomSize, wetLevel, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleReverb(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                roomSize,
+                wetLevel
+              ),
+            "Failed to apply reverb"
+          )
+        }
+        onDelay={(delayTime, feedback, wetLevel, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleDelay(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                delayTime,
+                feedback,
+                wetLevel
+              ),
+            "Failed to apply delay"
+          )
+        }
         onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
         onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
         onPaste={createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste")}

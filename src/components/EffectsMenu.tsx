@@ -12,6 +12,8 @@ interface EffectsMenuProps {
   onReverse: (scope: EffectScope) => void;
   onFadeIn: (scope: EffectScope) => void;
   onFadeOut: (scope: EffectScope) => void;
+  onReverb: (roomSize: number, wetLevel: number, scope: EffectScope) => void;
+  onDelay: (delayTime: number, feedback: number, wetLevel: number, scope: EffectScope) => void;
   disabled?: boolean;
 }
 
@@ -33,10 +35,18 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   const { store, getCurrentTrack } = useAudioStore();
   const [isOpen, setIsOpen] = createSignal(false);
   const [showAmplifyDialog, setShowAmplifyDialog] = createSignal(false);
+  const [showReverbDialog, setShowReverbDialog] = createSignal(false);
+  const [showDelayDialog, setShowDelayDialog] = createSignal(false);
   const [amplifyValue, setAmplifyValue] = createSignal("1.5");
+  const [reverbRoomSize, setReverbRoomSize] = createSignal("2.0");
+  const [reverbWetLevel, setReverbWetLevel] = createSignal("0.5");
+  const [delayTime, setDelayTime] = createSignal("0.3");
+  const [delayFeedback, setDelayFeedback] = createSignal("0.4");
+  const [delayWetLevel, setDelayWetLevel] = createSignal("0.5");
   const [scope, setScope] = createSignal<EffectScope>("track");
   let containerRef: HTMLDivElement | undefined;
   let buttonRef: HTMLButtonElement | undefined;
+  let portalRef: HTMLDivElement | undefined;
   const [menuPosition, setMenuPosition] = createSignal({ top: 0, right: 0 });
 
   const hasTrack = () => getCurrentTrack() !== null;
@@ -53,6 +63,8 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   const closeAll = () => {
     setIsOpen(false);
     setShowAmplifyDialog(false);
+    setShowReverbDialog(false);
+    setShowDelayDialog(false);
   };
 
   const updateMenuPosition = () => {
@@ -65,14 +77,19 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   };
 
   const handleClickOutside = (e: MouseEvent) => {
-    if (containerRef && !containerRef.contains(e.target as Node)) {
+    const target = e.target as Node;
+    const isInsideContainer = containerRef?.contains(target);
+    const isInsidePortal = portalRef?.contains(target);
+    const hasDialogOpen = showAmplifyDialog() || showReverbDialog() || showDelayDialog();
+
+    if (!isInsideContainer && !isInsidePortal && !hasDialogOpen) {
       closeAll();
     }
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
-      const wasOpen = isOpen() || showAmplifyDialog();
+      const wasOpen = isOpen() || showAmplifyDialog() || showReverbDialog() || showDelayDialog();
       if (wasOpen) {
         e.stopPropagation();
         closeAll();
@@ -170,6 +187,44 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     closeAll();
   };
 
+  const handleReverb = () => {
+    const roomSize = parseFloat(reverbRoomSize());
+    const wetLevel = parseFloat(reverbWetLevel());
+    if (
+      isNaN(roomSize) ||
+      roomSize <= 0 ||
+      roomSize > 3 ||
+      isNaN(wetLevel) ||
+      wetLevel < 0 ||
+      wetLevel > 1
+    ) {
+      return;
+    }
+    props.onReverb(roomSize, wetLevel, getEffectiveScope());
+    closeAll();
+  };
+
+  const handleDelay = () => {
+    const delay = parseFloat(delayTime());
+    const feedback = parseFloat(delayFeedback());
+    const wetLevel = parseFloat(delayWetLevel());
+    if (
+      isNaN(delay) ||
+      delay <= 0 ||
+      delay > 2 ||
+      isNaN(feedback) ||
+      feedback < 0 ||
+      feedback >= 1 ||
+      isNaN(wetLevel) ||
+      wetLevel < 0 ||
+      wetLevel > 1
+    ) {
+      return;
+    }
+    props.onDelay(delay, feedback, wetLevel, getEffectiveScope());
+    closeAll();
+  };
+
   const amplifyPercent = () => {
     const gain = parseFloat(amplifyValue());
     if (isNaN(gain)) return "";
@@ -189,6 +244,8 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     { label: "Reverse", onClick: handleReverse },
     { label: "Fade In", onClick: handleFadeIn },
     { label: "Fade Out", onClick: handleFadeOut },
+    { label: "Reverb...", onClick: () => setShowReverbDialog(true) },
+    { label: "Delay...", onClick: () => setShowDelayDialog(true) },
   ];
 
   const menuButtonClass =
@@ -236,14 +293,16 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
       <Show when={isOpen()}>
         <Portal>
           <div
+            ref={portalRef}
             class="fixed bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-md overflow-hidden z-[1000] w-[calc(100vw-3rem)] sm:w-auto sm:min-w-[220px] max-w-[280px] sm:max-w-none"
             style={{
               top: `${menuPosition().top}px`,
               right: `${menuPosition().right}px`,
               animation: "dropdownSlideUp 0.15s ease-out forwards",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <Show when={!showAmplifyDialog()}>
+            <Show when={!showAmplifyDialog() && !showReverbDialog() && !showDelayDialog()}>
               <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                 <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
                   Apply to:
@@ -307,7 +366,10 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                     <button
                       type="button"
                       class={menuButtonClass}
-                      onClick={item.onClick}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        item.onClick();
+                      }}
                       disabled={isDisabled()}
                     >
                       {item.label}
@@ -322,7 +384,10 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
               </For>
             </Show>
             <Show when={showAmplifyDialog()}>
-              <div class="p-3 border-b border-[var(--color-border)]">
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
                   Applying to: <span class="font-medium">{getScopeLabel()}</span>
                 </div>
@@ -357,6 +422,160 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                   type="button"
                   class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
                   onClick={() => setShowAmplifyDialog(false)}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showReverbDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Room Size (seconds)
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="3"
+                  step="0.1"
+                  value={reverbRoomSize()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0.1 && num <= 3)) {
+                      setReverbRoomSize(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)] mb-3"
+                  autofocus
+                />
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Wet Level (0-1)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={reverbWetLevel()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0 && num <= 1)) {
+                      setReverbWetLevel(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply reverb effect to ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleReverb}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowReverbDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showDelayDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Delay Time (seconds)
+                </label>
+                <input
+                  type="number"
+                  min="0.01"
+                  max="2"
+                  step="0.01"
+                  value={delayTime()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0.01 && num <= 2)) {
+                      setDelayTime(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)] mb-3"
+                  autofocus
+                />
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Feedback (0-0.99)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="0.99"
+                  step="0.05"
+                  value={delayFeedback()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0 && num <= 0.99)) {
+                      setDelayFeedback(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)] mb-3"
+                />
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Wet Level (0-1)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={delayWetLevel()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0 && num <= 1)) {
+                      setDelayWetLevel(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                />
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply delay effect to ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleDelay}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowDelayDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
                 >
                   Cancel
                 </button>
