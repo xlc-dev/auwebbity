@@ -30,6 +30,7 @@ export default function App() {
     saveProject,
     loadProject,
     splitTrack,
+    getCurrentTrack,
   } = useAudioStore();
   const recorder = useAudioRecorder();
   const [waveformRef, setWaveformRef] = createSignal<ReturnType<typeof useWaveform> | null>(null);
@@ -168,12 +169,11 @@ export default function App() {
     await resetStore();
   };
 
-  const handleExport = async (format: "wav" | "mp3" | "ogg", quality: string) => {
-    if (store.tracks.length === 0) {
-      toast.addToast("No audio tracks to export");
-      return;
-    }
-
+  const handleExport = async (
+    format: "wav" | "mp3" | "ogg",
+    quality: string,
+    scope: "all" | "current" | "selection"
+  ) => {
     const projectName = store.projectName.trim();
     if (!projectName) {
       toast.addToast("Please enter a project name");
@@ -183,25 +183,87 @@ export default function App() {
     setIsExporting(true);
     try {
       const { mixTracksWithVolume } = await import("./utils/audioBuffer");
-      const sampleRate = store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
-      const mixedBuffer = mixTracksWithVolume(
-        store.tracks.map((t) => ({
-          audioBuffer: t.audioBuffer,
-          volume: t.volume,
-          pan: t.pan,
-          muted: t.muted,
-          soloed: t.soloed,
-        })),
-        sampleRate
-      );
+      let audioBuffer: AudioBuffer | null = null;
+      let filename = `${projectName}.${format}`;
 
-      if (!mixedBuffer) {
+      if (scope === "current") {
+        const currentTrack = getCurrentTrack();
+        if (!currentTrack || !currentTrack.audioBuffer) {
+          toast.addToast("No current track to export");
+          return;
+        }
+        audioBuffer = currentTrack.audioBuffer;
+        filename = `${projectName}_${currentTrack.name}.${format}`;
+      } else if (scope === "selection") {
+        if (!store.selection) {
+          toast.addToast("No selection to export");
+          return;
+        }
+
+        const { start, end } = store.selection;
+        const sampleRate =
+          store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
+
+        const { createAudioBuffer } = await import("./utils/audioContext");
+        const tracksToMix = store.tracks
+          .filter((t) => t.audioBuffer !== null)
+          .map((t) => {
+            const buffer = t.audioBuffer!;
+            const startSample = Math.floor(start * buffer.sampleRate);
+            const endSample = Math.floor(end * buffer.sampleRate);
+            const length = Math.max(1, endSample - startSample);
+
+            const selectionBuffer = createAudioBuffer(
+              buffer.numberOfChannels,
+              length,
+              buffer.sampleRate
+            );
+
+            for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+              const sourceData = buffer.getChannelData(channel);
+              const destData = selectionBuffer.getChannelData(channel);
+              for (let i = 0; i < length && startSample + i < sourceData.length; i++) {
+                destData[i] = sourceData[startSample + i] ?? 0;
+              }
+            }
+
+            return {
+              audioBuffer: selectionBuffer,
+              volume: t.volume,
+              pan: t.pan,
+              muted: t.muted,
+              soloed: t.soloed,
+            };
+          });
+
+        audioBuffer = mixTracksWithVolume(tracksToMix, sampleRate);
+        filename = `${projectName}_selection.${format}`;
+      } else {
+        if (store.tracks.length === 0) {
+          toast.addToast("No audio tracks to export");
+          return;
+        }
+
+        const sampleRate =
+          store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
+        audioBuffer = mixTracksWithVolume(
+          store.tracks.map((t) => ({
+            audioBuffer: t.audioBuffer,
+            volume: t.volume,
+            pan: t.pan,
+            muted: t.muted,
+            soloed: t.soloed,
+          })),
+          sampleRate
+        );
+      }
+
+      if (!audioBuffer) {
         toast.addToast("No audio to export");
         return;
       }
 
-      const filename = `${projectName}.${format}`;
-      await audioOperations.exportAudio(mixedBuffer, format, filename, quality);
+      await audioOperations.exportAudio(audioBuffer, format, filename, quality);
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to export audio"));
     } finally {
