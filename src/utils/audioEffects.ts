@@ -526,4 +526,257 @@ export const audioEffects = {
 
     return newBuffer;
   },
+
+  async noiseReduction(
+    buffer: AudioBuffer,
+    reductionAmount: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.noiseReductionFull(buffer, reductionAmount);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const reducedRegion = await this.noiseReductionFull(region, reductionAmount);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(reducedRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async noiseReductionFull(buffer: AudioBuffer, reductionAmount: number): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0) {
+      return buffer;
+    }
+
+    const clampedReduction = Math.max(0, Math.min(1, reductionAmount));
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+
+    const windowSize = Math.floor(buffer.sampleRate * 0.05);
+    const hopSize = Math.floor(windowSize / 2);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+
+      let noiseFloor = 0;
+      let noiseSamples = 0;
+      const threshold = 0.01;
+
+      for (let i = 0; i < Math.min(windowSize * 10, sourceData.length); i++) {
+        const abs = Math.abs(sourceData[i] ?? 0);
+        if (abs < threshold) {
+          noiseFloor += abs * abs;
+          noiseSamples++;
+        }
+      }
+
+      const avgNoisePower = noiseSamples > 0 ? noiseFloor / noiseSamples : 0.0001;
+      const noiseThreshold = Math.sqrt(avgNoisePower) * 2;
+
+      for (let i = 0; i < sourceData.length; i++) {
+        const sample = sourceData[i] ?? 0;
+        const absSample = Math.abs(sample);
+
+        if (absSample < noiseThreshold) {
+          const reductionFactor = 1 - clampedReduction * (1 - absSample / noiseThreshold);
+          destData[i] = sample * reductionFactor;
+        } else {
+          const signalRatio = Math.min(1, (absSample - noiseThreshold) / (noiseThreshold * 2));
+          const reductionFactor = 1 - clampedReduction * 0.1 * (1 - signalRatio);
+          destData[i] = sample * reductionFactor;
+        }
+      }
+
+      const smoothingWindow = Math.floor(buffer.sampleRate * 0.01);
+      const smoothed = new Float32Array(destData.length);
+      for (let i = 0; i < destData.length; i++) {
+        let sum = 0;
+        let count = 0;
+        for (let j = Math.max(0, i - smoothingWindow); j < Math.min(destData.length, i + smoothingWindow); j++) {
+          sum += destData[j] ?? 0;
+          count++;
+        }
+        smoothed[i] = count > 0 ? sum / count : destData[i] ?? 0;
+      }
+
+      for (let i = 0; i < destData.length; i++) {
+        destData[i] = smoothed[i] * 0.7 + destData[i] * 0.3;
+        destData[i] = Math.max(-1.0, Math.min(1.0, destData[i]));
+      }
+    }
+
+    return newBuffer;
+  },
+
+  async changeSpeed(
+    buffer: AudioBuffer,
+    speedFactor: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration || speedFactor <= 0 || speedFactor > 4) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.changeSpeedFull(buffer, speedFactor);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const speedChangedRegion = await this.changeSpeedFull(region, speedFactor);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(speedChangedRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async changeSpeedFull(buffer: AudioBuffer, speedFactor: number): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0 || speedFactor <= 0 || speedFactor > 4) {
+      return buffer;
+    }
+
+    const clampedSpeed = Math.max(0.25, Math.min(4, speedFactor));
+    const newLength = Math.floor(buffer.length / clampedSpeed);
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, newLength, buffer.sampleRate);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+
+      for (let i = 0; i < newLength; i++) {
+        const sourceIndex = i * clampedSpeed;
+        const index1 = Math.floor(sourceIndex);
+        const index2 = Math.min(index1 + 1, sourceData.length - 1);
+        const fraction = sourceIndex - index1;
+
+        const sample1 = sourceData[index1] ?? 0;
+        const sample2 = sourceData[index2] ?? 0;
+        destData[i] = sample1 + (sample2 - sample1) * fraction;
+      }
+    }
+
+    return newBuffer;
+  },
+
+  async changePitch(
+    buffer: AudioBuffer,
+    pitchFactor: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration || pitchFactor <= 0 || pitchFactor > 4) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.changePitchFull(buffer, pitchFactor);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const pitchChangedRegion = await this.changePitchFull(region, pitchFactor);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(pitchChangedRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async changePitchFull(buffer: AudioBuffer, pitchFactor: number): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0 || pitchFactor <= 0 || pitchFactor > 4) {
+      return buffer;
+    }
+
+    const clampedPitch = Math.max(0.25, Math.min(4, pitchFactor));
+
+    if (clampedPitch === 1.0) {
+      return buffer;
+    }
+
+    const speedChanged = await this.changeSpeedFull(buffer, clampedPitch);
+
+    const originalLength = buffer.length;
+    const speedChangedLength = speedChanged.length;
+
+    if (speedChangedLength <= 0) {
+      return buffer;
+    }
+
+    const windowSize = Math.floor(buffer.sampleRate * 0.04);
+    const hopSize = Math.floor(windowSize / 2);
+    const stretchFactor = originalLength / speedChangedLength;
+
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, originalLength, buffer.sampleRate);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = speedChanged.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+
+      const window = new Float32Array(windowSize);
+      for (let i = 0; i < windowSize; i++) {
+        window[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (windowSize - 1)));
+      }
+
+      let outputPos = 0;
+      let inputPos = 0;
+
+      while (outputPos < originalLength && inputPos < speedChangedLength) {
+        const windowed = new Float32Array(windowSize);
+        for (let i = 0; i < windowSize; i++) {
+          const sourceIndex = Math.floor(inputPos + i);
+          if (sourceIndex < sourceData.length) {
+            windowed[i] = (sourceData[sourceIndex] ?? 0) * window[i];
+          }
+        }
+
+        for (let i = 0; i < windowSize && outputPos + i < originalLength; i++) {
+          destData[outputPos + i] = (destData[outputPos + i] ?? 0) + windowed[i];
+        }
+
+        inputPos += hopSize;
+        outputPos += Math.floor(hopSize * stretchFactor);
+      }
+
+      const maxOverlap = Math.ceil(windowSize / hopSize);
+      if (maxOverlap > 1) {
+        for (let i = 0; i < originalLength; i++) {
+          destData[i] = destData[i] / maxOverlap;
+        }
+      }
+
+      for (let i = 0; i < originalLength; i++) {
+        destData[i] = Math.max(-1.0, Math.min(1.0, destData[i] ?? 0));
+      }
+    }
+
+    return newBuffer;
+  },
 };

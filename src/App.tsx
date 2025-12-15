@@ -198,10 +198,8 @@ export default function App() {
 
   const handleToggleRepeat = () => {
     if (store.repeatRegion) {
-      // If there's already a repeat region, clear it
       setRepeatRegion(null);
     } else if (store.selection) {
-      // If there's a selection, set it as the repeat region
       setRepeatRegion({
         start: store.selection.start,
         end: store.selection.end,
@@ -481,6 +479,39 @@ export default function App() {
                 wetLevel
               ),
             "Failed to apply delay"
+          )
+        }
+        onNoiseReduction={(reductionAmount, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleNoiseReduction(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                reductionAmount
+              ),
+            "Failed to apply noise reduction"
+          )
+        }
+        onChangeSpeed={(speedFactor, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleChangeSpeed(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                speedFactor
+              ),
+            "Failed to change speed"
+          )
+        }
+        onChangePitch={(pitchFactor, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleChangePitch(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                pitchFactor
+              ),
+            "Failed to change pitch"
           )
         }
         onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}

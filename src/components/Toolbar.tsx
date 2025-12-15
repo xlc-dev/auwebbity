@@ -39,6 +39,9 @@ interface ToolbarProps {
     wetLevel: number,
     scope: "all" | "track" | "selection"
   ) => void;
+  onNoiseReduction: (reductionAmount: number, scope: "all" | "track" | "selection") => void;
+  onChangeSpeed: (speedFactor: number, scope: "all" | "track" | "selection") => void;
+  onChangePitch: (pitchFactor: number, scope: "all" | "track" | "selection") => void;
   onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
@@ -241,6 +244,9 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             onFadeOut={props.onFadeOut}
             onReverb={props.onReverb}
             onDelay={props.onDelay}
+            onNoiseReduction={props.onNoiseReduction}
+            onChangeSpeed={props.onChangeSpeed}
+            onChangePitch={props.onChangePitch}
             disabled={props.isExporting || !getCurrentTrack()}
           />
         </div>

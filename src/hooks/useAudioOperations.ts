@@ -278,6 +278,36 @@ export const useAudioOperations = () => {
     );
   };
 
+  const handleNoiseReduction = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    reductionAmount: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.noiseReduction(buffer, reductionAmount, start, end)
+    );
+  };
+
+  const handleChangeSpeed = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    speedFactor: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.changeSpeed(buffer, speedFactor, start, end)
+    );
+  };
+
+  const handleChangePitch = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    pitchFactor: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.changePitch(buffer, pitchFactor, start, end)
+    );
+  };
+
   return {
     handleCut,
     handleCopy,
@@ -291,6 +321,9 @@ export const useAudioOperations = () => {
     handleFadeOut,
     handleReverb,
     handleDelay,
+    handleNoiseReduction,
+    handleChangeSpeed,
+    handleChangePitch,
     isLoading,
   };
 };

@@ -14,6 +14,9 @@ interface EffectsMenuProps {
   onFadeOut: (scope: EffectScope) => void;
   onReverb: (roomSize: number, wetLevel: number, scope: EffectScope) => void;
   onDelay: (delayTime: number, feedback: number, wetLevel: number, scope: EffectScope) => void;
+  onNoiseReduction: (reductionAmount: number, scope: EffectScope) => void;
+  onChangeSpeed: (speedFactor: number, scope: EffectScope) => void;
+  onChangePitch: (pitchFactor: number, scope: EffectScope) => void;
   disabled?: boolean;
 }
 
@@ -37,12 +40,18 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   const [showAmplifyDialog, setShowAmplifyDialog] = createSignal(false);
   const [showReverbDialog, setShowReverbDialog] = createSignal(false);
   const [showDelayDialog, setShowDelayDialog] = createSignal(false);
+  const [showNoiseReductionDialog, setShowNoiseReductionDialog] = createSignal(false);
+  const [showSpeedDialog, setShowSpeedDialog] = createSignal(false);
+  const [showPitchDialog, setShowPitchDialog] = createSignal(false);
   const [amplifyValue, setAmplifyValue] = createSignal("1.5");
   const [reverbRoomSize, setReverbRoomSize] = createSignal("2.0");
   const [reverbWetLevel, setReverbWetLevel] = createSignal("0.5");
   const [delayTime, setDelayTime] = createSignal("0.3");
   const [delayFeedback, setDelayFeedback] = createSignal("0.4");
   const [delayWetLevel, setDelayWetLevel] = createSignal("0.5");
+  const [noiseReductionAmount, setNoiseReductionAmount] = createSignal("0.5");
+  const [speedFactor, setSpeedFactor] = createSignal("1.0");
+  const [pitchFactor, setPitchFactor] = createSignal("1.0");
   const [scope, setScope] = createSignal<EffectScope>("track");
   let containerRef: HTMLDivElement | undefined;
   let buttonRef: HTMLButtonElement | undefined;
@@ -65,6 +74,9 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     setShowAmplifyDialog(false);
     setShowReverbDialog(false);
     setShowDelayDialog(false);
+    setShowNoiseReductionDialog(false);
+    setShowSpeedDialog(false);
+    setShowPitchDialog(false);
   };
 
   const updateMenuPosition = () => {
@@ -80,7 +92,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     const target = e.target as Node;
     const isInsideContainer = containerRef?.contains(target);
     const isInsidePortal = portalRef?.contains(target);
-    const hasDialogOpen = showAmplifyDialog() || showReverbDialog() || showDelayDialog();
+    const hasDialogOpen = showAmplifyDialog() || showReverbDialog() || showDelayDialog() || showNoiseReductionDialog() || showSpeedDialog() || showPitchDialog();
 
     if (!isInsideContainer && !isInsidePortal && !hasDialogOpen) {
       closeAll();
@@ -89,7 +101,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
-      const wasOpen = isOpen() || showAmplifyDialog() || showReverbDialog() || showDelayDialog();
+      const wasOpen = isOpen() || showAmplifyDialog() || showReverbDialog() || showDelayDialog() || showNoiseReductionDialog() || showSpeedDialog() || showPitchDialog();
       if (wasOpen) {
         e.stopPropagation();
         closeAll();
@@ -225,6 +237,33 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     closeAll();
   };
 
+  const handleNoiseReduction = () => {
+    const reduction = parseFloat(noiseReductionAmount());
+    if (isNaN(reduction) || reduction < 0 || reduction > 1) {
+      return;
+    }
+    props.onNoiseReduction(reduction, getEffectiveScope());
+    closeAll();
+  };
+
+  const handleChangeSpeed = () => {
+    const speed = parseFloat(speedFactor());
+    if (isNaN(speed) || speed <= 0 || speed > 4) {
+      return;
+    }
+    props.onChangeSpeed(speed, getEffectiveScope());
+    closeAll();
+  };
+
+  const handleChangePitch = () => {
+    const pitch = parseFloat(pitchFactor());
+    if (isNaN(pitch) || pitch <= 0 || pitch > 4) {
+      return;
+    }
+    props.onChangePitch(pitch, getEffectiveScope());
+    closeAll();
+  };
+
   const amplifyPercent = () => {
     const gain = parseFloat(amplifyValue());
     if (isNaN(gain)) return "";
@@ -246,6 +285,9 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     { label: "Fade Out", onClick: handleFadeOut },
     { label: "Reverb...", onClick: () => setShowReverbDialog(true) },
     { label: "Delay...", onClick: () => setShowDelayDialog(true) },
+    { label: "Noise Reduction...", onClick: () => setShowNoiseReductionDialog(true) },
+    { label: "Change Speed...", onClick: () => setShowSpeedDialog(true) },
+    { label: "Change Pitch...", onClick: () => setShowPitchDialog(true) },
   ];
 
   const menuButtonClass =
@@ -302,7 +344,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <Show when={!showAmplifyDialog() && !showReverbDialog() && !showDelayDialog()}>
+            <Show when={!showAmplifyDialog() && !showReverbDialog() && !showDelayDialog() && !showNoiseReductionDialog() && !showSpeedDialog() && !showPitchDialog()}>
               <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                 <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
                   Apply to:
@@ -420,7 +462,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                 </Tooltip>
                 <button
                   type="button"
-                  class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
                   onClick={() => setShowAmplifyDialog(false)}
                 >
                   Cancel
@@ -485,7 +527,7 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                 </Tooltip>
                 <button
                   type="button"
-                  class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
                   onClick={() => {
                     setShowReverbDialog(false);
                     requestAnimationFrame(updateMenuPosition);
@@ -571,9 +613,190 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                 </Tooltip>
                 <button
                   type="button"
-                  class="flex-1 py-1.5 px-3 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
                   onClick={() => {
                     setShowDelayDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showNoiseReductionDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Reduction Amount (0-1)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={noiseReductionAmount()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0 && num <= 1)) {
+                      setNoiseReductionAmount(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                  autofocus
+                />
+                <div class="mt-1.5 text-[0.75rem] text-[var(--color-text-secondary)]">
+                  {(() => {
+                    const reduction = parseFloat(noiseReductionAmount());
+                    if (isNaN(reduction)) return "";
+                    return `${(reduction * 100).toFixed(0)}% reduction`;
+                  })()}
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply noise reduction to ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleNoiseReduction}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowNoiseReductionDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showSpeedDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Speed Factor (0.25-4.0)
+                </label>
+                <input
+                  type="number"
+                  min="0.25"
+                  max="4"
+                  step="0.05"
+                  value={speedFactor()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0.25 && num <= 4)) {
+                      setSpeedFactor(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                  autofocus
+                />
+                <div class="mt-1.5 text-[0.75rem] text-[var(--color-text-secondary)]">
+                  {(() => {
+                    const speed = parseFloat(speedFactor());
+                    if (isNaN(speed)) return "";
+                    const percent = ((speed - 1) * 100).toFixed(0);
+                    if (speed === 1) return "Normal speed";
+                    return speed > 1 ? `+${percent}% faster` : `${percent}% slower`;
+                  })()}
+                </div>
+                <div class="mt-2 text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Note: This changes both speed and pitch
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Change speed for ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleChangeSpeed}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowSpeedDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showPitchDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Pitch Factor (0.25-4.0)
+                </label>
+                <input
+                  type="number"
+                  min="0.25"
+                  max="4"
+                  step="0.05"
+                  value={pitchFactor()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0.25 && num <= 4)) {
+                      setPitchFactor(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                  autofocus
+                />
+                <div class="mt-1.5 text-[0.75rem] text-[var(--color-text-secondary)]">
+                  {(() => {
+                    const pitch = parseFloat(pitchFactor());
+                    if (isNaN(pitch)) return "";
+                    const semitones = (12 * Math.log2(pitch)).toFixed(1);
+                    if (pitch === 1) return "Normal pitch";
+                    return pitch > 1 ? `+${semitones} semitones (higher)` : `${semitones} semitones (lower)`;
+                  })()}
+                </div>
+                <div class="mt-2 text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Note: This changes pitch without changing speed/duration
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Change pitch for ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleChangePitch}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowPitchDialog(false);
                     requestAnimationFrame(updateMenuPosition);
                   }}
                 >
