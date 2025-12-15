@@ -1,6 +1,8 @@
 import { createAudioBuffer } from "./audioContext";
 import type { AudioWorkerMessage, AudioWorkerResponse } from "../workers/audioWorker";
 
+const WORKER_TIMEOUT_MS = 30000;
+
 let worker: Worker | null = null;
 let messageIdCounter = 0;
 const pendingMessages = new Map<
@@ -30,9 +32,7 @@ function getWorker(): Worker {
       }
     };
 
-    worker.onerror = (error) => {
-      console.error("Audio worker error:", error);
-      // Reject all pending messages
+    worker.onerror = () => {
       for (const [id, pending] of pendingMessages.entries()) {
         pendingMessages.delete(id);
         pending.reject(new Error("Worker error"));
@@ -93,7 +93,6 @@ function sendMessage<T>(type: AudioWorkerMessage["type"], data: any): Promise<T>
       data,
     };
 
-    // Transfer ownership of ArrayBuffers for better performance
     const transferables: Transferable[] = [];
     if (data.buffer?.channelData) {
       data.buffer.channelData.forEach((arr: Float32Array) => {
@@ -128,7 +127,7 @@ function sendMessage<T>(type: AudioWorkerMessage["type"], data: any): Promise<T>
         pendingMessages.delete(id);
         reject(new Error("Operation timeout"));
       }
-    }, 30000);
+    }, WORKER_TIMEOUT_MS);
   });
 }
 

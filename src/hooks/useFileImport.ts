@@ -1,6 +1,7 @@
 import { createSignal } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
 import { getAudioContext } from "../utils/audioContext";
+import { createTrackFromBuffer } from "../utils/trackHelpers";
 
 export const useFileImport = () => {
   const { addTrack } = useAudioStore();
@@ -39,18 +40,8 @@ export const useFileImport = () => {
       throw new Error(`Invalid audio file "${file.name}": duration is ${audioBuffer.duration}`);
     }
 
-    await addTrack({
-      name: file.name,
-      audioBuffer,
-      audioUrl,
-      duration: audioBuffer.duration,
-      backgroundColor: null,
-      volume: 1,
-      pan: 0,
-      muted: false,
-      soloed: false,
-      waveformRenderer: "bars",
-    });
+    const track = await createTrackFromBuffer(audioBuffer, audioUrl, file.name);
+    await addTrack(track);
   };
 
   const handleFileImport = async (e: Event) => {

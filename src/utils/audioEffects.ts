@@ -2,31 +2,43 @@ import { audioOperations } from "./audioOperations";
 import { mergeAudioBuffers } from "./audioBuffer";
 import { createAudioBuffer } from "./audioContext";
 
+type EffectFunction = (buffer: AudioBuffer, ...args: any[]) => Promise<AudioBuffer>;
+
+async function applyEffectToRegion(
+  buffer: AudioBuffer,
+  startTime: number | undefined,
+  endTime: number | undefined,
+  effectFn: EffectFunction,
+  effectArgs: any[] = []
+): Promise<AudioBuffer> {
+  const duration = buffer.duration;
+  const start = startTime ?? 0;
+  const end = endTime ?? duration;
+
+  if (start >= end || start < 0 || end > duration) {
+    return buffer;
+  }
+
+  if (start === 0 && end >= duration) {
+    return effectFn(buffer, ...effectArgs);
+  }
+
+  const { before, after } = await audioOperations.cut(buffer, start, end);
+  const region = await audioOperations.copy(buffer, start, end);
+  const processedRegion = await effectFn(region, ...effectArgs);
+
+  const mergedAfter = await mergeAudioBuffers(
+    processedRegion,
+    after,
+    buffer.numberOfChannels,
+    buffer.sampleRate
+  );
+  return mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+}
+
 export const audioEffects = {
   async normalize(buffer: AudioBuffer, startTime?: number, endTime?: number): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.normalizeFull(buffer);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const normalizedRegion = await this.normalizeFull(region);
-
-    const mergedAfter = await mergeAudioBuffers(
-      normalizedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.normalizeFull.bind(this));
   },
 
   async normalizeFull(buffer: AudioBuffer): Promise<AudioBuffer> {
@@ -70,29 +82,11 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration || gain <= 0) {
+    if (gain <= 0) {
       return buffer;
     }
 
-    if (start === 0 && end >= duration) {
-      return this.amplifyFull(buffer, gain);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const amplifiedRegion = await this.amplifyFull(region, gain);
-
-    const mergedAfter = await mergeAudioBuffers(
-      amplifiedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.amplifyFull.bind(this), [gain]);
   },
 
   async amplifyFull(buffer: AudioBuffer, gain: number): Promise<AudioBuffer> {
@@ -136,29 +130,7 @@ export const audioEffects = {
   },
 
   async reverse(buffer: AudioBuffer, startTime?: number, endTime?: number): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.reverseFull(buffer);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const reversedRegion = await this.reverseFull(region);
-
-    const mergedAfter = await mergeAudioBuffers(
-      reversedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.reverseFull.bind(this));
   },
 
   async reverseFull(buffer: AudioBuffer): Promise<AudioBuffer> {
@@ -186,25 +158,11 @@ export const audioEffects = {
     const end = endTime ?? duration;
     const fadeTime = fadeDuration ?? Math.min(0.5, (end - start) / 2);
 
-    if (start >= end || start < 0 || end > duration || fadeTime <= 0) {
+    if (fadeTime <= 0) {
       return buffer;
     }
 
-    if (start === 0 && end >= duration) {
-      return this.fadeInFull(buffer, fadeTime);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const fadedRegion = await this.fadeInFull(region, fadeTime);
-
-    const mergedAfter = await mergeAudioBuffers(
-      fadedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.fadeInFull.bind(this), [fadeTime]);
   },
 
   async fadeInFull(buffer: AudioBuffer, fadeDuration: number): Promise<AudioBuffer> {
@@ -240,25 +198,11 @@ export const audioEffects = {
     const end = endTime ?? duration;
     const fadeTime = fadeDuration ?? Math.min(0.5, (end - start) / 2);
 
-    if (start >= end || start < 0 || end > duration || fadeTime <= 0) {
+    if (fadeTime <= 0) {
       return buffer;
     }
 
-    if (start === 0 && end >= duration) {
-      return this.fadeOutFull(buffer, fadeTime);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const fadedRegion = await this.fadeOutFull(region, fadeTime);
-
-    const mergedAfter = await mergeAudioBuffers(
-      fadedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.fadeOutFull.bind(this), [fadeTime]);
   },
 
   async fadeOutFull(buffer: AudioBuffer, fadeDuration: number): Promise<AudioBuffer> {
@@ -298,29 +242,10 @@ export const audioEffects = {
     const clampedRoomSize = Math.max(0.1, Math.min(3, roomSize));
     const clampedWetLevel = Math.max(0, Math.min(1, wetLevel));
 
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.reverbFull(buffer, clampedRoomSize, clampedWetLevel);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const reverbedRegion = await this.reverbFull(region, clampedRoomSize, clampedWetLevel);
-
-    const mergedAfter = await mergeAudioBuffers(
-      reverbedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.reverbFull.bind(this), [
+      clampedRoomSize,
+      clampedWetLevel,
+    ]);
   },
 
   async reverbFull(buffer: AudioBuffer, roomSize: number, wetLevel: number): Promise<AudioBuffer> {
@@ -435,34 +360,11 @@ export const audioEffects = {
     const clampedFeedback = Math.max(0, Math.min(0.99, feedback));
     const clampedWetLevel = Math.max(0, Math.min(1, wetLevel));
 
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.delayFull(buffer, clampedDelayTime, clampedFeedback, clampedWetLevel);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const delayedRegion = await this.delayFull(
-      region,
+    return applyEffectToRegion(buffer, startTime, endTime, this.delayFull.bind(this), [
       clampedDelayTime,
       clampedFeedback,
-      clampedWetLevel
-    );
-
-    const mergedAfter = await mergeAudioBuffers(
-      delayedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+      clampedWetLevel,
+    ]);
   },
 
   async delayFull(
@@ -541,29 +443,9 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.noiseReductionFull(buffer, reductionAmount);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const reducedRegion = await this.noiseReductionFull(region, reductionAmount);
-
-    const mergedAfter = await mergeAudioBuffers(
-      reducedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.noiseReductionFull.bind(this), [
+      reductionAmount,
+    ]);
   },
 
   async noiseReductionFull(buffer: AudioBuffer, reductionAmount: number): Promise<AudioBuffer> {
@@ -642,29 +524,13 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration || speedFactor <= 0 || speedFactor > 4) {
+    if (speedFactor <= 0 || speedFactor > 4) {
       return buffer;
     }
 
-    if (start === 0 && end >= duration) {
-      return this.changeSpeedFull(buffer, speedFactor);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const speedChangedRegion = await this.changeSpeedFull(region, speedFactor);
-
-    const mergedAfter = await mergeAudioBuffers(
-      speedChangedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.changeSpeedFull.bind(this), [
+      speedFactor,
+    ]);
   },
 
   async changeSpeedFull(buffer: AudioBuffer, speedFactor: number): Promise<AudioBuffer> {
@@ -701,29 +567,13 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration || pitchFactor <= 0 || pitchFactor > 4) {
+    if (pitchFactor <= 0 || pitchFactor > 4) {
       return buffer;
     }
 
-    if (start === 0 && end >= duration) {
-      return this.changePitchFull(buffer, pitchFactor);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const pitchChangedRegion = await this.changePitchFull(region, pitchFactor);
-
-    const mergedAfter = await mergeAudioBuffers(
-      pitchChangedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.changePitchFull.bind(this), [
+      pitchFactor,
+    ]);
   },
 
   async changePitchFull(buffer: AudioBuffer, pitchFactor: number): Promise<AudioBuffer> {
@@ -808,36 +658,13 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.compressorFull(buffer, threshold, ratio, attack, release, knee);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const compressedRegion = await this.compressorFull(
-      region,
+    return applyEffectToRegion(buffer, startTime, endTime, this.compressorFull.bind(this), [
       threshold,
       ratio,
       attack,
       release,
-      knee
-    );
-
-    const mergedAfter = await mergeAudioBuffers(
-      compressedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+      knee,
+    ]);
   },
 
   async compressorFull(
@@ -912,29 +739,10 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.limiterFull(buffer, threshold, release);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const limitedRegion = await this.limiterFull(region, threshold, release);
-
-    const mergedAfter = await mergeAudioBuffers(
-      limitedRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.limiterFull.bind(this), [
+      threshold,
+      release,
+    ]);
   },
 
   async limiterFull(buffer: AudioBuffer, threshold: number, release: number): Promise<AudioBuffer> {
@@ -986,29 +794,11 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.eqFull(buffer, frequency, gain, q);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const eqRegion = await this.eqFull(region, frequency, gain, q);
-
-    const mergedAfter = await mergeAudioBuffers(
-      eqRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.eqFull.bind(this), [
+      frequency,
+      gain,
+      q,
+    ]);
   },
 
   async eqFull(
@@ -1073,29 +863,9 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.highPassFilterFull(buffer, cutoffFrequency);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const filteredRegion = await this.highPassFilterFull(region, cutoffFrequency);
-
-    const mergedAfter = await mergeAudioBuffers(
-      filteredRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.highPassFilterFull.bind(this), [
+      cutoffFrequency,
+    ]);
   },
 
   async highPassFilterFull(buffer: AudioBuffer, cutoffFrequency: number): Promise<AudioBuffer> {
@@ -1151,29 +921,9 @@ export const audioEffects = {
     startTime?: number,
     endTime?: number
   ): Promise<AudioBuffer> {
-    const duration = buffer.duration;
-    const start = startTime ?? 0;
-    const end = endTime ?? duration;
-
-    if (start >= end || start < 0 || end > duration) {
-      return buffer;
-    }
-
-    if (start === 0 && end >= duration) {
-      return this.lowPassFilterFull(buffer, cutoffFrequency);
-    }
-
-    const { before, after } = await audioOperations.cut(buffer, start, end);
-    const region = await audioOperations.copy(buffer, start, end);
-    const filteredRegion = await this.lowPassFilterFull(region, cutoffFrequency);
-
-    const mergedAfter = await mergeAudioBuffers(
-      filteredRegion,
-      after,
-      buffer.numberOfChannels,
-      buffer.sampleRate
-    );
-    return await mergeAudioBuffers(before, mergedAfter, buffer.numberOfChannels, buffer.sampleRate);
+    return applyEffectToRegion(buffer, startTime, endTime, this.lowPassFilterFull.bind(this), [
+      cutoffFrequency,
+    ]);
   },
 
   async lowPassFilterFull(buffer: AudioBuffer, cutoffFrequency: number): Promise<AudioBuffer> {

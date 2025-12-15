@@ -3,6 +3,7 @@ import { audioOperations } from "../utils/audioOperations";
 import { cloneAudioBuffer } from "../utils/audioBuffer";
 import { exportProject, importProject, downloadProject } from "../utils/project";
 import { getAudioContext } from "../utils/audioContext";
+import { cloneTrackWithBuffer, createTrackFromBufferWithUrl } from "../utils/trackHelpers";
 
 export interface AudioTrack {
   id: string;
@@ -317,7 +318,7 @@ async function loadState(): Promise<
       pan: track.pan ?? 0,
       muted: track.muted ?? false,
       soloed: track.soloed ?? false,
-      waveformRenderer: (track as any).waveformRenderer || "bars",
+      waveformRenderer: track.waveformRenderer || "bars",
     }));
 
     const loadCurrentTrack = async () => {
@@ -347,7 +348,7 @@ async function loadState(): Promise<
       }
     };
 
-    loadCurrentTrack().catch(console.error);
+    loadCurrentTrack().catch(() => {});
 
     persistedState.tracks.forEach((track, index) => {
       if (track.id === currentTrackId) return;
@@ -355,14 +356,14 @@ async function loadState(): Promise<
       if (typeof requestIdleCallback !== "undefined") {
         requestIdleCallback(
           () => {
-            loadTrackBuffer(track.id).catch(console.error);
+            loadTrackBuffer(track.id).catch(() => {});
           },
           { timeout: index < 5 ? 1000 : 3000 }
         );
       } else {
         setTimeout(
           () => {
-            loadTrackBuffer(track.id).catch(console.error);
+            loadTrackBuffer(track.id).catch(() => {});
           },
           index < 5 ? 100 : 500
         );
@@ -440,7 +441,7 @@ async function loadState(): Promise<
                 undoStack.push(...stack);
                 setAudioStore("undoStackLength", undoStack.length);
               })
-              .catch(console.error);
+              .catch(() => {});
           },
           { timeout: 5000 }
         );
@@ -467,7 +468,7 @@ async function loadState(): Promise<
                 redoStack.push(...stack);
                 setAudioStore("redoStackLength", redoStack.length);
               })
-              .catch(console.error);
+              .catch(() => {});
           },
           { timeout: 5000 }
         );
@@ -527,8 +528,11 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
   projectName: "",
 });
 
+const SAVE_DEBOUNCE_MS = 1000;
+
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
 let saveScheduled = false;
+
 const scheduleSave = () => {
   if (saveScheduled) return;
   saveScheduled = true;
@@ -537,8 +541,8 @@ const scheduleSave = () => {
   }
   saveTimeout = setTimeout(() => {
     saveScheduled = false;
-    saveState(audioStore).catch(console.error);
-  }, 1000);
+    saveState(audioStore).catch(() => {});
+  }, SAVE_DEBOUNCE_MS);
 };
 
 const MAX_HISTORY = 50;
@@ -551,12 +555,12 @@ export const initializeStore = async () => {
   isInitialized = true;
 
   window.addEventListener("beforeunload", () => {
-    saveState(audioStore, undoStack, redoStack).catch(console.error);
+    saveState(audioStore, undoStack, redoStack).catch(() => {});
   });
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
-      saveState(audioStore, undoStack, redoStack).catch(console.error);
+      saveState(audioStore, undoStack, redoStack).catch(() => {});
     }
   });
 
@@ -853,23 +857,16 @@ export const useAudioStore = () => {
 
     await saveToHistory();
 
-    const clonedBuffer = cloneAudioBuffer(track.audioBuffer);
-    const blob = await audioOperations.audioBufferToBlob(clonedBuffer);
-    const audioUrl = URL.createObjectURL(blob);
+    const { track: newTrackData, audioUrl } = await cloneTrackWithBuffer(
+      track,
+      `${track.name} Copy`
+    );
 
     const newId = crypto.randomUUID();
     const newTrack: AudioTrack = {
+      ...newTrackData,
       id: newId,
-      name: `${track.name} Copy`,
-      audioBuffer: clonedBuffer,
       audioUrl,
-      duration: track.duration,
-      backgroundColor: track.backgroundColor,
-      volume: track.volume,
-      pan: track.pan,
-      muted: track.muted,
-      soloed: track.soloed,
-      waveformRenderer: track.waveformRenderer,
     };
 
     const trackIndex = audioStore.tracks.findIndex((t) => t.id === trackId);
@@ -892,40 +889,30 @@ export const useAudioStore = () => {
 
     const { left, right } = await audioOperations.split(track.audioBuffer, splitTime);
 
-    const leftBlob = await audioOperations.audioBufferToBlob(left);
-    const leftUrl = URL.createObjectURL(leftBlob);
-    const rightBlob = await audioOperations.audioBufferToBlob(right);
-    const rightUrl = URL.createObjectURL(rightBlob);
+    const { track: leftTrackData, audioUrl: leftUrl } = await createTrackFromBufferWithUrl(
+      left,
+      `${track.name} (1)`,
+      track
+    );
+    const { track: rightTrackData, audioUrl: rightUrl } = await createTrackFromBufferWithUrl(
+      right,
+      `${track.name} (2)`,
+      track
+    );
 
     const leftId = crypto.randomUUID();
     const rightId = crypto.randomUUID();
 
     const leftTrack: AudioTrack = {
+      ...leftTrackData,
       id: leftId,
-      name: `${track.name} (1)`,
-      audioBuffer: left,
       audioUrl: leftUrl,
-      duration: left.duration,
-      backgroundColor: track.backgroundColor,
-      volume: track.volume,
-      pan: track.pan,
-      muted: track.muted,
-      soloed: track.soloed,
-      waveformRenderer: track.waveformRenderer,
     };
 
     const rightTrack: AudioTrack = {
+      ...rightTrackData,
       id: rightId,
-      name: `${track.name} (2)`,
-      audioBuffer: right,
       audioUrl: rightUrl,
-      duration: right.duration,
-      backgroundColor: track.backgroundColor,
-      volume: track.volume,
-      pan: track.pan,
-      muted: track.muted,
-      soloed: track.soloed,
-      waveformRenderer: track.waveformRenderer,
     };
 
     const trackIndex = audioStore.tracks.findIndex((t) => t.id === trackId);

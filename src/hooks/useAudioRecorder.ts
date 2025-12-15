@@ -3,6 +3,7 @@ import { useAudioStore } from "../stores/audioStore";
 import { getErrorMessage } from "../utils/error";
 import { formatDateForFilename } from "../utils/date";
 import { getAudioContext } from "../utils/audioContext";
+import { createTrackFromBuffer } from "../utils/trackHelpers";
 
 function stopMediaStream(stream: MediaStream): void {
   stream.getTracks().forEach((track) => track.stop());
@@ -75,18 +76,12 @@ export const useAudioRecorder = () => {
           const arrayBuffer = await audioBlob.arrayBuffer();
           const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-          await addTrack({
-            name: `Recording ${formatDateForFilename()}`,
+          const track = await createTrackFromBuffer(
             audioBuffer,
             audioUrl,
-            duration: audioBuffer.duration,
-            backgroundColor: null,
-            volume: 1,
-            pan: 0,
-            muted: false,
-            soloed: false,
-            waveformRenderer: "bars",
-          });
+            `Recording ${formatDateForFilename()}`
+          );
+          await addTrack(track);
 
           stopMediaStream(stream);
         } catch (err) {

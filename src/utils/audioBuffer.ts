@@ -1,5 +1,6 @@
 import { createAudioBuffer } from "./audioContext";
 import { audioWorkerClient } from "./audioWorkerClient";
+import { withWorkerFallback } from "./workerFallback";
 
 const USE_WORKER = typeof Worker !== "undefined";
 
@@ -25,30 +26,29 @@ export async function mergeAudioBuffers(
   numberOfChannels: number,
   sampleRate: number
 ): Promise<AudioBuffer> {
-  if (USE_WORKER) {
-    try {
-      return await audioWorkerClient.merge(before, after, numberOfChannels, sampleRate);
-    } catch (error) {
-      console.warn("Worker merge failed, falling back to main thread:", error);
-    }
-  }
-  const newLength = Math.max(1, before.length + after.length);
-  const newBuffer = createAudioBuffer(numberOfChannels, newLength, sampleRate);
+  return withWorkerFallback(
+    USE_WORKER,
+    () => audioWorkerClient.merge(before, after, numberOfChannels, sampleRate),
+    () => {
+      const newLength = Math.max(1, before.length + after.length);
+      const newBuffer = createAudioBuffer(numberOfChannels, newLength, sampleRate);
 
-  for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-    const newData = newBuffer.getChannelData(channel);
-    const beforeData = before.getChannelData(channel);
-    const afterData = after.getChannelData(channel);
+      for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
+        const newData = newBuffer.getChannelData(channel);
+        const beforeData = before.getChannelData(channel);
+        const afterData = after.getChannelData(channel);
 
-    for (let i = 0; i < before.length; i++) {
-      newData[i] = beforeData[i] ?? 0;
-    }
-    for (let i = 0; i < after.length; i++) {
-      newData[before.length + i] = afterData[i] ?? 0;
-    }
-  }
+        for (let i = 0; i < before.length; i++) {
+          newData[i] = beforeData[i] ?? 0;
+        }
+        for (let i = 0; i < after.length; i++) {
+          newData[before.length + i] = afterData[i] ?? 0;
+        }
+      }
 
-  return newBuffer;
+      return newBuffer;
+    }
+  );
 }
 
 export function mixTracksWithVolume(

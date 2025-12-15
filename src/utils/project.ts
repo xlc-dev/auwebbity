@@ -23,6 +23,7 @@ export interface ProjectFile {
 }
 
 const PROJECT_VERSION = "1.0.0";
+const CHUNK_SIZE = 8192;
 
 export async function exportProject(state: AudioState): Promise<Blob> {
   const tracks = await Promise.all(
@@ -33,9 +34,8 @@ export async function exportProject(state: AudioState): Promise<Blob> {
         const arrayBuffer = await blob.arrayBuffer();
         const uint8Array = new Uint8Array(arrayBuffer);
         const chunks: string[] = [];
-        const chunkSize = 8192;
-        for (let i = 0; i < uint8Array.length; i += chunkSize) {
-          const chunk = uint8Array.slice(i, i + chunkSize);
+        for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+          const chunk = uint8Array.slice(i, i + CHUNK_SIZE);
           chunks.push(String.fromCharCode(...chunk));
         }
         audioData = btoa(chunks.join(""));

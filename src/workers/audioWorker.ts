@@ -148,17 +148,14 @@ function paste(
         ? clipData[channel]!
         : new Float32Array(clipLength);
 
-    // Copy before insert point
     for (let i = 0; i < insertSample; i++) {
       newData[i] = origChannelData[i] ?? 0;
     }
 
-    // Copy clipboard data
     for (let i = 0; i < clipLength; i++) {
       newData[insertSample + i] = clipChannelData[i] ?? 0;
     }
 
-    // Copy after insert point
     for (let i = 0; i < origLength - insertSample; i++) {
       newData[insertSample + clipLength + i] = origChannelData[insertSample + i] ?? 0;
     }

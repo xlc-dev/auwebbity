@@ -15,6 +15,8 @@ import { useToast } from "./hooks/useToast";
 import { audioOperations } from "./utils/audioOperations";
 import { getErrorMessage } from "./utils/error";
 import type { useWaveform } from "./hooks/useWaveform";
+import { useWaveformManager } from "./hooks/useWaveformManager";
+import { prepareExportBuffer } from "./utils/export";
 
 export default function App() {
   const {
@@ -48,7 +50,7 @@ export default function App() {
   let projectInputRef: HTMLInputElement | undefined;
 
   const checkMobile = () => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const userAgent = navigator.userAgent || navigator.vendor;
     const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
       userAgent.toLowerCase()
     );
@@ -193,88 +195,26 @@ export default function App() {
 
     setIsExporting(true);
     try {
-      const { mixTracksWithVolume } = await import("./utils/audioBuffer");
-      let audioBuffer: AudioBuffer | null = null;
-      let filename = `${projectName}.${format}`;
+      const result = await prepareExportBuffer(
+        scope,
+        store.tracks,
+        getCurrentTrack(),
+        store.selection,
+        projectName,
+        format
+      );
 
-      if (scope === "current") {
-        const currentTrack = getCurrentTrack();
-        if (!currentTrack || !currentTrack.audioBuffer) {
-          toast.addToast("No current track to export");
-          return;
-        }
-        audioBuffer = currentTrack.audioBuffer;
-        filename = `${projectName}_${currentTrack.name}.${format}`;
-      } else if (scope === "selection") {
-        if (!store.selection) {
-          toast.addToast("No selection to export");
-          return;
-        }
-
-        const { start, end } = store.selection;
-        const sampleRate =
-          store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
-
-        const { createAudioBuffer } = await import("./utils/audioContext");
-        const tracksToMix = store.tracks
-          .filter((t) => t.audioBuffer !== null)
-          .map((t) => {
-            const buffer = t.audioBuffer!;
-            const startSample = Math.floor(start * buffer.sampleRate);
-            const endSample = Math.floor(end * buffer.sampleRate);
-            const length = Math.max(1, endSample - startSample);
-
-            const selectionBuffer = createAudioBuffer(
-              buffer.numberOfChannels,
-              length,
-              buffer.sampleRate
-            );
-
-            for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-              const sourceData = buffer.getChannelData(channel);
-              const destData = selectionBuffer.getChannelData(channel);
-              for (let i = 0; i < length && startSample + i < sourceData.length; i++) {
-                destData[i] = sourceData[startSample + i] ?? 0;
-              }
-            }
-
-            return {
-              audioBuffer: selectionBuffer,
-              volume: t.volume,
-              pan: t.pan,
-              muted: t.muted,
-              soloed: t.soloed,
-            };
-          });
-
-        audioBuffer = mixTracksWithVolume(tracksToMix, sampleRate);
-        filename = `${projectName}_selection.${format}`;
-      } else {
-        if (store.tracks.length === 0) {
-          toast.addToast("No audio tracks to export");
-          return;
-        }
-
-        const sampleRate =
-          store.tracks.find((t) => t.audioBuffer)?.audioBuffer?.sampleRate ?? 44100;
-        audioBuffer = mixTracksWithVolume(
-          store.tracks.map((t) => ({
-            audioBuffer: t.audioBuffer,
-            volume: t.volume,
-            pan: t.pan,
-            muted: t.muted,
-            soloed: t.soloed,
-          })),
-          sampleRate
-        );
-      }
-
-      if (!audioBuffer) {
-        toast.addToast("No audio to export");
+      if (!result) {
+        const messages = {
+          current: "No current track to export",
+          selection: "No selection to export",
+          all: "No audio tracks to export",
+        };
+        toast.addToast(messages[scope]);
         return;
       }
 
-      await audioOperations.exportAudio(audioBuffer, format, filename, quality);
+      await audioOperations.exportAudio(result.buffer, format, result.filename, quality);
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to export audio"));
     } finally {
@@ -293,9 +233,8 @@ export default function App() {
     }
   };
 
-  const clearAllSelections = () => {
-    waveformMap().forEach((waveform) => waveform.clearSelection());
-  };
+  const waveformManager = useWaveformManager(waveformMap);
+  const { playAllTracks, pauseAllTracks, stopAllTracks, seekAllTracks } = waveformManager;
 
   const createOperationHandler = (operation: () => Promise<void>, errorMessage: string) => () =>
     handleOperation(operation, errorMessage);
@@ -316,7 +255,7 @@ export default function App() {
       }
     },
     onToggleRepeat: handleToggleRepeat,
-    onClearAllSelections: clearAllSelections,
+    onClearAllSelections: waveformManager.clearAllSelections,
     onAddMarker: () => {
       addMarker(store.currentTime);
     },
@@ -341,7 +280,7 @@ export default function App() {
 
     if (!mobile) {
       setIsInitialized(true);
-      initializeStore().catch(console.error);
+      initializeStore().catch(() => {});
     }
   });
 
@@ -378,53 +317,6 @@ export default function App() {
       setLastCurrentTime(currentTime);
     }
   });
-
-  const playAllTracks = () => {
-    const map = waveformMap();
-    const tracks = store.tracks;
-    const trackMap = new Map(tracks.map((t) => [t.id, t]));
-    const hasSoloedTracks = tracks.some((t) => t.soloed);
-
-    map.forEach((waveform, trackId) => {
-      const track = trackMap.get(trackId);
-      if (!track) return;
-
-      const shouldPlay = hasSoloedTracks ? track.soloed : !track.muted;
-
-      if (shouldPlay) {
-        waveform.play();
-      } else {
-        waveform.pause();
-      }
-    });
-  };
-
-  const pauseAllTracks = () => {
-    const map = waveformMap();
-    map.forEach((waveform) => {
-      waveform.pause();
-    });
-  };
-
-  const stopAllTracks = () => {
-    const map = waveformMap();
-    map.forEach((waveform) => {
-      waveform.stop();
-    });
-  };
-
-  const seekAllTracks = (time: number) => {
-    const map = waveformMap();
-    const tracks = store.tracks;
-    const trackMap = new Map(tracks.map((t) => [t.id, t]));
-    map.forEach((waveform, trackId) => {
-      const track = trackMap.get(trackId);
-      if (track && track.duration > 0) {
-        const normalizedPosition = Math.max(0, Math.min(1, time / track.duration));
-        waveform.seekTo(normalizedPosition);
-      }
-    });
-  };
 
   const isLoading = () => fileImport.isLoading() || audioOps.isLoading();
 

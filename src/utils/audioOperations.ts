@@ -1,36 +1,37 @@
 import { createAudioBuffer } from "./audioContext";
 import { audioWorkerClient } from "./audioWorkerClient";
+import { withWorkerFallback } from "./workerFallback";
 
 const USE_WORKER = typeof Worker !== "undefined";
+const DEFAULT_BIT_DEPTH = 16;
 
 export const audioOperations = {
   async copy(audioBuffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> {
-    if (USE_WORKER) {
-      try {
-        return await audioWorkerClient.copy(audioBuffer, startTime, endTime);
-      } catch (error) {
-        console.warn("Worker copy failed, falling back to main thread:", error);
-      }
-    }
-    const startSample = Math.floor(startTime * audioBuffer.sampleRate);
-    const endSample = Math.floor(endTime * audioBuffer.sampleRate);
-    const length = Math.max(1, endSample - startSample);
+    return withWorkerFallback(
+      USE_WORKER,
+      () => audioWorkerClient.copy(audioBuffer, startTime, endTime),
+      () => {
+        const startSample = Math.floor(startTime * audioBuffer.sampleRate);
+        const endSample = Math.floor(endTime * audioBuffer.sampleRate);
+        const length = Math.max(1, endSample - startSample);
 
-    const newBuffer = createAudioBuffer(
-      audioBuffer.numberOfChannels,
-      length,
-      audioBuffer.sampleRate
+        const newBuffer = createAudioBuffer(
+          audioBuffer.numberOfChannels,
+          length,
+          audioBuffer.sampleRate
+        );
+
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+          const oldData = audioBuffer.getChannelData(channel);
+          const newData = newBuffer.getChannelData(channel);
+          for (let i = 0; i < length; i++) {
+            newData[i] = oldData[startSample + i] ?? 0;
+          }
+        }
+
+        return newBuffer;
+      }
     );
-
-    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-      const oldData = audioBuffer.getChannelData(channel);
-      const newData = newBuffer.getChannelData(channel);
-      for (let i = 0; i < length; i++) {
-        newData[i] = oldData[startSample + i] ?? 0;
-      }
-    }
-
-    return newBuffer;
   },
 
   async cut(
@@ -38,45 +39,44 @@ export const audioOperations = {
     startTime: number,
     endTime: number
   ): Promise<{ before: AudioBuffer; after: AudioBuffer }> {
-    if (USE_WORKER) {
-      try {
-        return await audioWorkerClient.cut(audioBuffer, startTime, endTime);
-      } catch (error) {
-        console.warn("Worker cut failed, falling back to main thread:", error);
-      }
-    }
-    const startSample = Math.floor(startTime * audioBuffer.sampleRate);
-    const endSample = Math.floor(endTime * audioBuffer.sampleRate);
+    return withWorkerFallback(
+      USE_WORKER,
+      () => audioWorkerClient.cut(audioBuffer, startTime, endTime),
+      () => {
+        const startSample = Math.floor(startTime * audioBuffer.sampleRate);
+        const endSample = Math.floor(endTime * audioBuffer.sampleRate);
 
-    const beforeLength = Math.max(1, startSample);
-    const beforeBuffer = createAudioBuffer(
-      audioBuffer.numberOfChannels,
-      beforeLength,
-      audioBuffer.sampleRate
+        const beforeLength = Math.max(1, startSample);
+        const beforeBuffer = createAudioBuffer(
+          audioBuffer.numberOfChannels,
+          beforeLength,
+          audioBuffer.sampleRate
+        );
+
+        const afterLength = Math.max(1, audioBuffer.length - endSample);
+        const afterBuffer = createAudioBuffer(
+          audioBuffer.numberOfChannels,
+          afterLength,
+          audioBuffer.sampleRate
+        );
+
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+          const oldData = audioBuffer.getChannelData(channel);
+          const beforeData = beforeBuffer.getChannelData(channel);
+          const afterData = afterBuffer.getChannelData(channel);
+
+          for (let i = 0; i < startSample; i++) {
+            beforeData[i] = oldData[i] ?? 0;
+          }
+
+          for (let i = 0; i < audioBuffer.length - endSample; i++) {
+            afterData[i] = oldData[endSample + i] ?? 0;
+          }
+        }
+
+        return { before: beforeBuffer, after: afterBuffer };
+      }
     );
-
-    const afterLength = Math.max(1, audioBuffer.length - endSample);
-    const afterBuffer = createAudioBuffer(
-      audioBuffer.numberOfChannels,
-      afterLength,
-      audioBuffer.sampleRate
-    );
-
-    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-      const oldData = audioBuffer.getChannelData(channel);
-      const beforeData = beforeBuffer.getChannelData(channel);
-      const afterData = afterBuffer.getChannelData(channel);
-
-      for (let i = 0; i < startSample; i++) {
-        beforeData[i] = oldData[i] ?? 0;
-      }
-
-      for (let i = 0; i < audioBuffer.length - endSample; i++) {
-        afterData[i] = oldData[endSample + i] ?? 0;
-      }
-    }
-
-    return { before: beforeBuffer, after: afterBuffer };
   },
 
   async paste(
@@ -84,50 +84,53 @@ export const audioOperations = {
     clipboardBuffer: AudioBuffer,
     insertTime: number
   ): Promise<AudioBuffer> {
-    if (USE_WORKER) {
-      try {
-        return await audioWorkerClient.paste(originalBuffer, clipboardBuffer, insertTime);
-      } catch (error) {
-        console.warn("Worker paste failed, falling back to main thread:", error);
-      }
-    }
-    const insertSample = Math.floor(insertTime * originalBuffer.sampleRate);
-    const newLength = originalBuffer.length + clipboardBuffer.length;
+    return withWorkerFallback(
+      USE_WORKER,
+      () => audioWorkerClient.paste(originalBuffer, clipboardBuffer, insertTime),
+      () => {
+        const insertSample = Math.floor(insertTime * originalBuffer.sampleRate);
+        const newLength = originalBuffer.length + clipboardBuffer.length;
 
-    const newBuffer = createAudioBuffer(
-      Math.max(originalBuffer.numberOfChannels, clipboardBuffer.numberOfChannels),
-      newLength,
-      originalBuffer.sampleRate
+        const newBuffer = createAudioBuffer(
+          Math.max(originalBuffer.numberOfChannels, clipboardBuffer.numberOfChannels),
+          newLength,
+          originalBuffer.sampleRate
+        );
+
+        for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
+          const newData = newBuffer.getChannelData(channel);
+          const originalData =
+            channel < originalBuffer.numberOfChannels
+              ? originalBuffer.getChannelData(channel)
+              : new Float32Array(originalBuffer.length);
+          const clipboardData =
+            channel < clipboardBuffer.numberOfChannels
+              ? clipboardBuffer.getChannelData(channel)
+              : new Float32Array(clipboardBuffer.length);
+
+          for (let i = 0; i < insertSample; i++) {
+            newData[i] = originalData[i] ?? 0;
+          }
+
+          for (let i = 0; i < clipboardBuffer.length; i++) {
+            newData[insertSample + i] = clipboardData[i] ?? 0;
+          }
+
+          for (let i = 0; i < originalBuffer.length - insertSample; i++) {
+            newData[insertSample + clipboardBuffer.length + i] =
+              originalData[insertSample + i] ?? 0;
+          }
+        }
+
+        return newBuffer;
+      }
     );
-
-    for (let channel = 0; channel < newBuffer.numberOfChannels; channel++) {
-      const newData = newBuffer.getChannelData(channel);
-      const originalData =
-        channel < originalBuffer.numberOfChannels
-          ? originalBuffer.getChannelData(channel)
-          : new Float32Array(originalBuffer.length);
-      const clipboardData =
-        channel < clipboardBuffer.numberOfChannels
-          ? clipboardBuffer.getChannelData(channel)
-          : new Float32Array(clipboardBuffer.length);
-
-      for (let i = 0; i < insertSample; i++) {
-        newData[i] = originalData[i] ?? 0;
-      }
-
-      for (let i = 0; i < clipboardBuffer.length; i++) {
-        newData[insertSample + i] = clipboardData[i] ?? 0;
-      }
-
-      for (let i = 0; i < originalBuffer.length - insertSample; i++) {
-        newData[insertSample + clipboardBuffer.length + i] = originalData[insertSample + i] ?? 0;
-      }
-    }
-
-    return newBuffer;
   },
 
-  async audioBufferToBlob(audioBuffer: AudioBuffer, bitDepth: number = 16): Promise<Blob> {
+  async audioBufferToBlob(
+    audioBuffer: AudioBuffer,
+    bitDepth: number = DEFAULT_BIT_DEPTH
+  ): Promise<Blob> {
     const numberOfChannels = audioBuffer.numberOfChannels;
     const sampleRate = audioBuffer.sampleRate;
     const length = audioBuffer.length;
@@ -209,45 +212,44 @@ export const audioOperations = {
     audioBuffer: AudioBuffer,
     splitTime: number
   ): Promise<{ left: AudioBuffer; right: AudioBuffer }> {
-    if (USE_WORKER) {
-      try {
-        return await audioWorkerClient.split(audioBuffer, splitTime);
-      } catch (error) {
-        console.warn("Worker split failed, falling back to main thread:", error);
+    return withWorkerFallback(
+      USE_WORKER,
+      () => audioWorkerClient.split(audioBuffer, splitTime),
+      () => {
+        const splitSample = Math.floor(splitTime * audioBuffer.sampleRate);
+
+        const leftLength = Math.max(1, splitSample);
+        const rightLength = Math.max(1, audioBuffer.length - splitSample);
+
+        const leftBuffer = createAudioBuffer(
+          audioBuffer.numberOfChannels,
+          leftLength,
+          audioBuffer.sampleRate
+        );
+
+        const rightBuffer = createAudioBuffer(
+          audioBuffer.numberOfChannels,
+          rightLength,
+          audioBuffer.sampleRate
+        );
+
+        for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+          const oldData = audioBuffer.getChannelData(channel);
+          const leftData = leftBuffer.getChannelData(channel);
+          const rightData = rightBuffer.getChannelData(channel);
+
+          for (let i = 0; i < leftLength; i++) {
+            leftData[i] = oldData[i] ?? 0;
+          }
+
+          for (let i = 0; i < rightLength; i++) {
+            rightData[i] = oldData[splitSample + i] ?? 0;
+          }
+        }
+
+        return { left: leftBuffer, right: rightBuffer };
       }
-    }
-    const splitSample = Math.floor(splitTime * audioBuffer.sampleRate);
-
-    const leftLength = Math.max(1, splitSample);
-    const rightLength = Math.max(1, audioBuffer.length - splitSample);
-
-    const leftBuffer = createAudioBuffer(
-      audioBuffer.numberOfChannels,
-      leftLength,
-      audioBuffer.sampleRate
     );
-
-    const rightBuffer = createAudioBuffer(
-      audioBuffer.numberOfChannels,
-      rightLength,
-      audioBuffer.sampleRate
-    );
-
-    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-      const oldData = audioBuffer.getChannelData(channel);
-      const leftData = leftBuffer.getChannelData(channel);
-      const rightData = rightBuffer.getChannelData(channel);
-
-      for (let i = 0; i < leftLength; i++) {
-        leftData[i] = oldData[i] ?? 0;
-      }
-
-      for (let i = 0; i < rightLength; i++) {
-        rightData[i] = oldData[splitSample + i] ?? 0;
-      }
-    }
-
-    return { left: leftBuffer, right: rightBuffer };
   },
 
   async audioBufferToMP3OrOGG(
