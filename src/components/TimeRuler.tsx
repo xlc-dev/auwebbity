@@ -1,18 +1,13 @@
-import { Component, createMemo, createEffect, createSignal, onCleanup, Show } from "solid-js";
+import { Component, createMemo, createEffect, createSignal, Show } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
 
 interface TimeRulerProps {
   containerRef: () => HTMLDivElement | undefined;
-  onSeek?: (time: number) => void;
-  onSetRepeatStart?: (time: number) => void;
-  onSetRepeatEnd?: (time: number) => void;
-  onClearRepeat?: () => void;
 }
 
 export const TimeRuler: Component<TimeRulerProps> = (props) => {
-  const { store, setCurrentTime } = useAudioStore();
+  const { store } = useAudioStore();
   const [width, setWidth] = createSignal(0);
-  const [selectingRepeatStart, setSelectingRepeatStart] = createSignal(false);
 
   const duration = createMemo(() => {
     const tracks = store.tracks;
@@ -188,118 +183,15 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     return { start: startPos, end: endPos };
   });
 
-  const getTimeFromEvent = (e: MouseEvent): number | null => {
-    const dur = duration();
-    if (dur <= 0) return null;
-
-    const target = e.currentTarget as HTMLElement;
-    if (!target) return null;
-
-    const rect = target.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const pps = pixelsPerSecond();
-    if (pps <= 0) return null;
-
-    const timelineWidth = dur * pps;
-    const progress = Math.max(0, Math.min(1, x / timelineWidth));
-    return progress * dur;
-  };
-
-  let selectionTimeout: ReturnType<typeof setTimeout> | null = null;
-
-  const handleDoubleClick = (e: MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (store.repeatRegion) {
-      if (props.onClearRepeat) {
-        props.onClearRepeat();
-      }
-      setSelectingRepeatStart(false);
-      if (selectionTimeout) {
-        clearTimeout(selectionTimeout);
-        selectionTimeout = null;
-      }
-      return;
-    }
-
-    const startTime = getTimeFromEvent(e);
-    if (startTime === null) return;
-
-    setSelectingRepeatStart(true);
-    if (props.onSetRepeatStart) {
-      props.onSetRepeatStart(startTime);
-    }
-
-    if (selectionTimeout) {
-      clearTimeout(selectionTimeout);
-    }
-    selectionTimeout = setTimeout(() => {
-      setSelectingRepeatStart(false);
-      selectionTimeout = null;
-    }, 5000);
-  };
-
-  const handleContextMenu = (e: MouseEvent) => {
-    e.preventDefault();
-    if (store.repeatRegion && props.onClearRepeat) {
-      props.onClearRepeat();
-    }
-  };
-
-  const handleClick = (e: MouseEvent) => {
-    if (selectingRepeatStart()) {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const endTime = getTimeFromEvent(e);
-      if (endTime === null) return;
-
-      setSelectingRepeatStart(false);
-      if (selectionTimeout) {
-        clearTimeout(selectionTimeout);
-        selectionTimeout = null;
-      }
-      if (props.onSetRepeatEnd) {
-        props.onSetRepeatEnd(endTime);
-      }
-      return;
-    }
-
-    const newTime = getTimeFromEvent(e);
-    if (newTime === null) return;
-
-    setCurrentTime(newTime);
-    if (props.onSeek) {
-      props.onSeek(newTime);
-    }
-  };
 
   return (
     <div
-      class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden"
-      classList={{
-        "cursor-pointer": !selectingRepeatStart(),
-        "cursor-crosshair": selectingRepeatStart(),
-      }}
+      class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden pointer-events-none"
       style={{
         width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%",
         "max-width": "100%",
       }}
-      onClick={handleClick}
-      onDblClick={handleDoubleClick}
-      onContextMenu={handleContextMenu}
-      title={
-        selectingRepeatStart()
-          ? "Click to set repeat end point"
-          : store.repeatRegion
-            ? "Double-click or press R to clear repeat"
-            : "Double-click to set repeat start"
-      }
     >
-      <Show when={selectingRepeatStart()}>
-        <div class="absolute inset-0 bg-blue-500/10 border-b-2 border-blue-500/50 z-[10] pointer-events-none" />
-      </Show>
       {markers().map((marker) => {
         const effWidth = effectiveWidth();
         const constrainedPos =
@@ -337,10 +229,4 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
       </Show>
     </div>
   );
-
-  onCleanup(() => {
-    if (selectionTimeout) {
-      clearTimeout(selectionTimeout);
-    }
-  });
 };

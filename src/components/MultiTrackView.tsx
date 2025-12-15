@@ -1039,9 +1039,6 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
 interface MultiTrackViewProps {
   onWaveformReady?: (waveform: ReturnType<typeof useWaveform>, trackId: string) => void;
   onSeekAll?: (time: number) => void;
-  onSetRepeatStart?: (time: number) => void;
-  onSetRepeatEnd?: (time: number) => void;
-  onClearRepeat?: () => void;
   onSelectionCreated?: (trackId: string) => void;
 }
 
@@ -1237,13 +1234,7 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
               />
             </div>
             <div class="flex-1 overflow-x-auto overflow-y-hidden [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-[var(--color-bg)] [&::-webkit-scrollbar-track]:rounded [&::-webkit-scrollbar-thumb]:bg-[var(--color-border)] [&::-webkit-scrollbar-thumb]:rounded [&::-webkit-scrollbar-thumb]:border [&::-webkit-scrollbar-thumb]:border-[var(--color-bg)] [&::-webkit-scrollbar-thumb]:hover:bg-[var(--color-border-hover)]">
-              <TimeRuler
-                containerRef={mainContainerRef}
-                onSeek={props.onSeekAll}
-                onSetRepeatStart={props.onSetRepeatStart}
-                onSetRepeatEnd={props.onSetRepeatEnd}
-                onClearRepeat={props.onClearRepeat}
-              />
+              <TimeRuler containerRef={mainContainerRef} />
             </div>
           </div>
           <div

@@ -196,19 +196,17 @@ export default function App() {
     }
   };
 
-  const handleSetRepeatStart = (time: number) => {
-    setRepeatRegion({ start: time, end: time });
-  };
-
-  const handleSetRepeatEnd = (time: number) => {
+  const handleToggleRepeat = () => {
     if (store.repeatRegion) {
-      const start = store.repeatRegion.start;
-      setRepeatRegion({ start, end: Math.max(start, time) });
+      // If there's already a repeat region, clear it
+      setRepeatRegion(null);
+    } else if (store.selection) {
+      // If there's a selection, set it as the repeat region
+      setRepeatRegion({
+        start: store.selection.start,
+        end: store.selection.end,
+      });
     }
-  };
-
-  const handleClearRepeat = () => {
-    setRepeatRegion(null);
   };
 
   const clearAllSelections = () => {
@@ -233,7 +231,7 @@ export default function App() {
         playAllTracks();
       }
     },
-    onClearRepeat: handleClearRepeat,
+    onToggleRepeat: handleToggleRepeat,
     onClearAllSelections: clearAllSelections,
   });
 
@@ -383,9 +381,6 @@ export default function App() {
               });
             }}
             onSeekAll={seekAllTracks}
-            onSetRepeatStart={handleSetRepeatStart}
-            onSetRepeatEnd={handleSetRepeatEnd}
-            onClearRepeat={handleClearRepeat}
             onSelectionCreated={(trackId) => {
               const map = waveformMap();
               map.forEach((waveform, id) => {

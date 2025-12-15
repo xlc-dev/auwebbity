@@ -10,7 +10,7 @@ interface UseKeyboardShortcutsOptions {
   onUndo: () => void;
   onRedo: () => void;
   onPlayPause?: () => void;
-  onClearRepeat?: () => void;
+  onToggleRepeat?: () => void;
   onClearAllSelections?: () => void;
 }
 
@@ -101,9 +101,9 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
     }
 
     if ((e.key === "r" || e.key === "R") && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
-      if (store.repeatRegion && options.onClearRepeat) {
+      if (options.onToggleRepeat) {
         e.preventDefault();
-        options.onClearRepeat();
+        options.onToggleRepeat();
       }
       return;
     }
