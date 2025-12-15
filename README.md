@@ -12,7 +12,7 @@
 
 ---
 
-Auwebbity is a powerful web-based audio editor that runs entirely in your browser. Built with Solid.js and WaveSurfer.js, it provides professional-grade audio editing capabilities without requiring any server-side processing.
+Auwebbity is a powerful web-based audio editor that runs entirely in your browser. It features multi-track editing, audio effects (EQ, compression, reverb, delay, and more), waveform visualization, and export functionality—all without any installation required.
 
 > [!IMPORTANT]
 > This software is currently in **beta** and is **very buggy and slow**.
