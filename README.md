@@ -14,6 +14,10 @@
 
 Auwebbity is a powerful web-based audio editor that runs entirely in your browser. Built with Solid.js and WaveSurfer.js, it provides professional-grade audio editing capabilities without requiring any server-side processing.
 
+> [!IMPORTANT]
+> This software is currently in **beta** and is **very buggy and slow**.
+> Many features may not work as expected, performance may be poor, and data loss may occur. This is an early development version and should not be used for production work or important projects.
+
 ## Features
 
 - Multi-track audio editing with unlimited tracks
