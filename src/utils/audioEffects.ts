@@ -1014,7 +1014,6 @@ export const audioEffects = {
     const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
     const sampleRate = buffer.sampleRate;
 
-    // Biquad filter coefficients for parametric EQ
     const w0 = (2 * Math.PI * clampedFreq) / sampleRate;
     const cosW0 = Math.cos(w0);
     const sinW0 = Math.sin(w0);
@@ -1093,7 +1092,6 @@ export const audioEffects = {
     const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
     const sampleRate = buffer.sampleRate;
 
-    // Biquad high-pass filter coefficients
     const w0 = (2 * Math.PI * clampedFreq) / sampleRate;
     const cosW0 = Math.cos(w0);
     const sinW0 = Math.sin(w0);
@@ -1171,7 +1169,6 @@ export const audioEffects = {
     const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
     const sampleRate = buffer.sampleRate;
 
-    // Biquad low-pass filter coefficients
     const w0 = (2 * Math.PI * clampedFreq) / sampleRate;
     const cosW0 = Math.cos(w0);
     const sinW0 = Math.sin(w0);

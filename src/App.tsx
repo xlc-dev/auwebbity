@@ -25,6 +25,8 @@ export default function App() {
     canUndo,
     canRedo,
     setRepeatRegion,
+    addMarker,
+    clearMarkers,
     saveProject,
     loadProject,
     splitTrack,
@@ -242,6 +244,12 @@ export default function App() {
     },
     onToggleRepeat: handleToggleRepeat,
     onClearAllSelections: clearAllSelections,
+    onAddMarker: () => {
+      addMarker(store.currentTime);
+    },
+    onClearMarkers: () => {
+      clearMarkers();
+    },
   });
 
   onMount(async () => {

@@ -36,6 +36,7 @@ export interface AudioState {
   undoStackLength: number;
   redoStackLength: number;
   repeatRegion: { start: number; end: number } | null;
+  markers: number[];
   projectName: string;
 }
 
@@ -83,6 +84,7 @@ interface PersistedState {
   undoStack?: PersistedSnapshot[];
   redoStack?: PersistedSnapshot[];
   projectName?: string;
+  markers?: number[];
 }
 
 async function openDB(): Promise<IDBDatabase> {
@@ -205,6 +207,7 @@ async function saveState(
       })),
       currentTrackId: state.currentTrackId,
       projectName: state.projectName,
+      markers: state.markers,
       undoStack: await Promise.all(
         undoStack.map((snapshot, index) => persistSnapshot(snapshot, `undo-${index}`))
       ),
@@ -325,6 +328,7 @@ async function loadState(): Promise<
       isPlaying: false,
       undoStack,
       redoStack,
+      markers: persistedState.markers || [],
       projectName: persistedState.projectName || "",
     };
   } catch (error) {
@@ -356,6 +360,7 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
   undoStackLength: 0,
   redoStackLength: 0,
   repeatRegion: null,
+  markers: [],
   projectName: "",
 });
 
@@ -424,6 +429,7 @@ export const initializeStore = async () => {
       undoStackLength: undoStack.length,
       redoStackLength: redoStack.length,
       repeatRegion: null,
+      markers: [],
       projectName: savedState.projectName || "",
     });
   }
@@ -467,6 +473,28 @@ export const useAudioStore = () => {
     setAudioStore("repeatRegion", region);
   };
 
+  const addMarker = (time: number) => {
+    setAudioStore("markers", (markers) => {
+      const existingMarker = markers.find((m) => Math.abs(m - time) < 0.01);
+      if (existingMarker !== undefined) return markers;
+      const newMarkers = [...markers, time].sort((a, b) => a - b);
+      return newMarkers;
+    });
+    scheduleSave();
+  };
+
+  const removeMarker = (time: number) => {
+    setAudioStore("markers", (markers) => {
+      return markers.filter((m) => Math.abs(m - time) >= 0.01);
+    });
+    scheduleSave();
+  };
+
+  const clearMarkers = () => {
+    setAudioStore("markers", []);
+    scheduleSave();
+  };
+
   const setClipboard = (buffer: AudioBuffer | null) => {
     setAudioStore("clipboard", buffer);
     scheduleSave();
@@ -504,6 +532,7 @@ export const useAudioStore = () => {
       undoStackLength: 0,
       redoStackLength: 0,
       repeatRegion: null,
+      markers: [],
       projectName: "",
     });
   };
@@ -775,6 +804,7 @@ export const useAudioStore = () => {
       undoStackLength: 0,
       redoStackLength: 0,
       repeatRegion: loadedState.repeatRegion,
+      markers: loadedState.markers || [],
       projectName: loadedState.projectName,
     });
 
@@ -797,6 +827,9 @@ export const useAudioStore = () => {
     setPlaying,
     setCurrentTime,
     setRepeatRegion,
+    addMarker,
+    removeMarker,
+    clearMarkers,
     setClipboard,
     getCurrentTrack,
     resetStore,

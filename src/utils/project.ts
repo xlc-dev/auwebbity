@@ -19,6 +19,7 @@ export interface ProjectFile {
   currentTrackId: string | null;
   zoom: number;
   repeatRegion: { start: number; end: number } | null;
+  markers?: number[];
 }
 
 const PROJECT_VERSION = "1.0.0";
@@ -62,6 +63,7 @@ export async function exportProject(state: AudioState): Promise<Blob> {
     currentTrackId: state.currentTrackId,
     zoom: state.zoom,
     repeatRegion: state.repeatRegion,
+    markers: state.markers,
   };
 
   const json = JSON.stringify(project, null, 2);
@@ -124,6 +126,7 @@ export async function importProject(
     currentTrackId: project.currentTrackId,
     zoom: project.zoom ?? 100,
     repeatRegion: project.repeatRegion ?? null,
+    markers: project.markers || [],
     projectName: project.projectName || "",
     isPlaying: false,
     currentTime: 0,

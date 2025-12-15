@@ -1043,7 +1043,7 @@ interface MultiTrackViewProps {
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
-  const { store, setCurrentTrackId, deleteTrack, duplicateTrack, setAudioStore, reorderTracks } =
+  const { store, setCurrentTrackId, deleteTrack, duplicateTrack, setAudioStore, reorderTracks, removeMarker } =
     useAudioStore();
   const [mainContainerRef, setMainContainerRef] = createSignal<HTMLDivElement | undefined>(
     undefined
@@ -1096,6 +1096,22 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
     const startPos = repeatRegion.start * pps;
     const endPos = repeatRegion.end * pps;
     return { start: startPos, end: endPos };
+  });
+
+  const markerPositions = createMemo(() => {
+    const markers = store.markers;
+    if (!markers || markers.length === 0) return [];
+
+    const maxDur = maxDuration();
+    if (maxDur <= 0) return [];
+
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return [];
+
+    return markers.map((time) => ({
+      time,
+      position: time * pps,
+    }));
   });
 
   const [sidebarWidth, setSidebarWidth] = createSignal(192);
@@ -1255,6 +1271,23 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                   />
                 )}
               </Show>
+              <For each={markerPositions()}>
+                {(marker) => (
+                  <div
+                    class="absolute w-0.5 bg-blue-500/60 z-[16] cursor-pointer hover:bg-blue-500 hover:w-1 transition-all"
+                    style={{
+                      left: `${sidebarWidth() + marker.position}px`,
+                      top: "0px",
+                      height: `${store.tracks.length * 200}px`,
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeMarker(marker.time);
+                    }}
+                    title="Click to delete marker"
+                  />
+                )}
+              </For>
               <For each={store.tracks}>
                 {(track, index) => {
                   const handleDragStart = (trackId: string) => {

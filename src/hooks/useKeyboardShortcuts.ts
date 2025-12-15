@@ -12,6 +12,8 @@ interface UseKeyboardShortcutsOptions {
   onPlayPause?: () => void;
   onToggleRepeat?: () => void;
   onClearAllSelections?: () => void;
+  onAddMarker?: () => void;
+  onClearMarkers?: () => void;
 }
 
 export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
@@ -104,6 +106,21 @@ export const useKeyboardShortcuts = (options: UseKeyboardShortcutsOptions) => {
       if (options.onToggleRepeat) {
         e.preventDefault();
         options.onToggleRepeat();
+      }
+      return;
+    }
+
+    if ((e.key === "m" || e.key === "M") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (e.shiftKey) {
+        if (options.onClearMarkers) {
+          e.preventDefault();
+          options.onClearMarkers();
+        }
+      } else {
+        if (options.onAddMarker) {
+          e.preventDefault();
+          options.onAddMarker();
+        }
       }
       return;
     }

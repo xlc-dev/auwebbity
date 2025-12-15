@@ -1,4 +1,4 @@
-import { Component, createMemo, createEffect, createSignal, Show } from "solid-js";
+import { Component, createMemo, createEffect, createSignal, Show, For } from "solid-js";
 import { useAudioStore } from "../stores/audioStore";
 
 interface TimeRulerProps {
@@ -6,7 +6,7 @@ interface TimeRulerProps {
 }
 
 export const TimeRuler: Component<TimeRulerProps> = (props) => {
-  const { store } = useAudioStore();
+  const { store, removeMarker } = useAudioStore();
   const [width, setWidth] = createSignal(0);
 
   const duration = createMemo(() => {
@@ -183,6 +183,22 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     return { start: startPos, end: endPos };
   });
 
+  const markerPositions = createMemo(() => {
+    const markers = store.markers;
+    if (!markers || markers.length === 0) return [];
+
+    const dur = duration();
+    if (dur <= 0) return [];
+
+    const pps = pixelsPerSecond();
+    if (pps <= 0) return [];
+
+    return markers.map((time) => ({
+      time,
+      position: time * pps,
+    }));
+  });
+
   return (
     <div
       class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden pointer-events-none"
@@ -226,6 +242,23 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
           );
         }}
       </Show>
+      <For each={markerPositions()}>
+        {(marker) => {
+          const effWidth = effectiveWidth();
+          const constrainedPos = Math.max(0, Math.min(marker.position, effWidth - 1));
+          return (
+            <div
+              class="absolute top-0 w-0 h-0 border-l-[4px] border-l-blue-500 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent z-[20] cursor-pointer hover:border-l-blue-400 hover:scale-110 transition-all pointer-events-auto"
+              style={{ left: `${constrainedPos}px` }}
+              onClick={(e) => {
+                e.stopPropagation();
+                removeMarker(marker.time);
+              }}
+              title="Click to delete marker"
+            />
+          );
+        }}
+      </For>
     </div>
   );
 };
