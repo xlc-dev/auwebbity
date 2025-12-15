@@ -1,10 +1,11 @@
-import { createSignal, Show, onMount, createEffect } from "solid-js";
+import { createSignal, Show, onMount, onCleanup, createEffect } from "solid-js";
 import { MultiTrackView } from "./components/MultiTrackView";
 import { Toolbar } from "./components/Toolbar";
 import { ToastContainer } from "./components/Toast";
 import { KeyboardShortcuts } from "./components/KeyboardShortcuts";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { Spinner } from "./components/Spinner";
+import { MobileBlocker } from "./components/MobileBlocker";
 import { useAudioStore, initializeStore } from "./stores/audioStore";
 import { useAudioRecorder } from "./hooks/useAudioRecorder";
 import { useKeyboardShortcuts } from "./hooks/useKeyboardShortcuts";
@@ -39,8 +40,18 @@ export default function App() {
   const [showShortcuts, setShowShortcuts] = createSignal(false);
   const [isExporting, setIsExporting] = createSignal(false);
   const [isDragging, setIsDragging] = createSignal(false);
+  const [isMobile, setIsMobile] = createSignal(false);
   let fileInputRef: HTMLInputElement | undefined;
   let projectInputRef: HTMLInputElement | undefined;
+
+  const checkMobile = () => {
+    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
+    const isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(
+      userAgent.toLowerCase()
+    );
+    const isSmallScreen = window.innerWidth < 768;
+    return isMobileDevice || isSmallScreen;
+  };
 
   const fileImport = useFileImport();
   const audioOps = useAudioOperations();
@@ -234,8 +245,23 @@ export default function App() {
   });
 
   onMount(async () => {
-    await initializeStore();
-    setIsInitialized(true);
+    const mobile = checkMobile();
+    setIsMobile(mobile);
+
+    const handleResize = () => {
+      setIsMobile(checkMobile());
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    onCleanup(() => {
+      window.removeEventListener("resize", handleResize);
+    });
+
+    if (!mobile) {
+      await initializeStore();
+      setIsInitialized(true);
+    }
   });
 
   createEffect(() => {
@@ -328,6 +354,10 @@ export default function App() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      <Show when={isMobile()}>
+        <MobileBlocker />
+      </Show>
+      <Show when={!isMobile()}>
       <input
         ref={fileInputRef}
         type="file"
@@ -558,6 +588,7 @@ export default function App() {
         onConfirm={handleResetConfirm}
         onCancel={() => setShowResetDialog(false)}
       />
+      </Show>
     </main>
   );
 }
