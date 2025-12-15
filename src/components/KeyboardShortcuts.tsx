@@ -6,7 +6,9 @@ interface KeyboardShortcutsProps {
 }
 
 export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
-  const [activeTab, setActiveTab] = createSignal<"getting-started" | "features" | "shortcuts">("getting-started");
+  const [activeTab, setActiveTab] = createSignal<"getting-started" | "features" | "shortcuts">(
+    "getting-started"
+  );
 
   const shortcuts = [
     { keys: ["Space"], description: "Play/Pause" },
@@ -91,31 +93,37 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
                 <div>
                   <h3 class="text-base font-semibold mb-2">Importing Audio</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Click the "Import" button in the toolbar or drag and drop audio files onto the editor. You can import multiple files at once, and each will be added as a separate track.
+                    Click the "Import" button in the toolbar or drag and drop audio files onto the
+                    editor. You can import multiple files at once, and each will be added as a
+                    separate track.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Recording Audio</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Click the record button in the toolbar to start recording. Click again to stop. The recorded audio will be automatically added as a new track.
+                    Click the record button in the toolbar to start recording. Click again to stop.
+                    The recorded audio will be automatically added as a new track.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Selecting Audio</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Click and drag on any waveform to create a selection. You can drag selections to move them, or use cut/copy/paste operations.
+                    Click and drag on any waveform to create a selection. You can drag selections to
+                    move them, or use cut/copy/paste operations.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Playing Audio</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Use the play button in the toolbar or press Spacebar to play/pause. Click anywhere on a waveform to seek to that position.
+                    Use the play button in the toolbar or press Spacebar to play/pause. Click
+                    anywhere on a waveform to seek to that position.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Saving Your Work</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Enter a project name at the top of the editor, then use "Save Project" to download your project file. Use "Load Project" to restore a saved project.
+                    Enter a project name at the top of the editor, then use "Save Project" to
+                    download your project file. Use "Load Project" to restore a saved project.
                   </p>
                 </div>
               </div>
@@ -125,55 +133,70 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
                 <div>
                   <h3 class="text-base font-semibold mb-2">Multi-Track Editing</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Work with unlimited audio tracks. Each track has independent volume, pan, mute, and solo controls. Drag tracks to reorder them.
+                    Work with unlimited audio tracks. Each track has independent volume, pan, mute,
+                    and solo controls. Drag tracks to reorder them.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Waveform Visualization</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Click the waveform icon on any track to cycle between bars, line, and spectrogram views. Each view provides different visual information about your audio.
+                    Click the waveform icon on any track to cycle between bars, line, and
+                    spectrogram views. Each view provides different visual information about your
+                    audio.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Editing Operations</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Cut, copy, paste, and delete selections. All operations support undo/redo. Use the split button to divide a track at the current position or selection start.
+                    Cut, copy, paste, and delete selections. All operations support undo/redo. Use
+                    the split button to divide a track at the current position or selection start.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Audio Effects</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Apply effects from the Effects menu. Effects can be applied to the current selection, current track, or all tracks. Available effects include normalize, amplify, silence, reverse, fade in/out, reverb, delay, noise reduction, speed change, pitch change, compressor, limiter, EQ, and filters.
+                    Apply effects from the Effects menu. Effects can be applied to the current
+                    selection, current track, or all tracks. Available effects include normalize,
+                    amplify, silence, reverse, fade in/out, reverb, delay, noise reduction, speed
+                    change, pitch change, compressor, limiter, EQ, and filters.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Markers</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Press M to add a marker at the current playback position. Markers are visual aids that help you navigate your project. Click a marker to delete it, or press Shift+M to clear all markers.
+                    Press M to add a marker at the current playback position. Markers are visual
+                    aids that help you navigate your project. Click a marker to delete it, or press
+                    Shift+M to clear all markers.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Repeat Region</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Select a region and press R to set it as a repeat region. During playback, the audio will loop within this region. Press R again to clear the repeat region.
+                    Select a region and press R to set it as a repeat region. During playback, the
+                    audio will loop within this region. Press R again to clear the repeat region.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Zoom Controls</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Use the zoom controls in the toolbar to zoom in/out on the timeline. This helps with precise editing and navigation.
+                    Use the zoom controls in the toolbar to zoom in/out on the timeline. This helps
+                    with precise editing and navigation.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Export</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Export your project as a single audio file in WAV, MP3, or OGG format. The export mixes all tracks together respecting volume, pan, mute, and solo settings.
+                    Export your project as a single audio file in WAV, MP3, or OGG format. The
+                    export mixes all tracks together respecting volume, pan, mute, and solo
+                    settings.
                   </p>
                 </div>
                 <div>
                   <h3 class="text-base font-semibold mb-2">Track Controls</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Each track has volume and pan sliders. Use mute to silence a track, or solo to hear only that track. Click the color icon to set a track color for visual organization.
+                    Each track has volume and pan sliders. Use mute to silence a track, or solo to
+                    hear only that track. Click the color icon to set a track color for visual
+                    organization.
                   </p>
                 </div>
               </div>

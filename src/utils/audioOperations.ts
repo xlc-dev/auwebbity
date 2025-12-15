@@ -1,7 +1,17 @@
 import { createAudioBuffer } from "./audioContext";
+import { audioWorkerClient } from "./audioWorkerClient";
+
+const USE_WORKER = typeof Worker !== "undefined";
 
 export const audioOperations = {
   async copy(audioBuffer: AudioBuffer, startTime: number, endTime: number): Promise<AudioBuffer> {
+    if (USE_WORKER) {
+      try {
+        return await audioWorkerClient.copy(audioBuffer, startTime, endTime);
+      } catch (error) {
+        console.warn("Worker copy failed, falling back to main thread:", error);
+      }
+    }
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
     const endSample = Math.floor(endTime * audioBuffer.sampleRate);
     const length = Math.max(1, endSample - startSample);
@@ -28,6 +38,13 @@ export const audioOperations = {
     startTime: number,
     endTime: number
   ): Promise<{ before: AudioBuffer; after: AudioBuffer }> {
+    if (USE_WORKER) {
+      try {
+        return await audioWorkerClient.cut(audioBuffer, startTime, endTime);
+      } catch (error) {
+        console.warn("Worker cut failed, falling back to main thread:", error);
+      }
+    }
     const startSample = Math.floor(startTime * audioBuffer.sampleRate);
     const endSample = Math.floor(endTime * audioBuffer.sampleRate);
 
@@ -67,6 +84,13 @@ export const audioOperations = {
     clipboardBuffer: AudioBuffer,
     insertTime: number
   ): Promise<AudioBuffer> {
+    if (USE_WORKER) {
+      try {
+        return await audioWorkerClient.paste(originalBuffer, clipboardBuffer, insertTime);
+      } catch (error) {
+        console.warn("Worker paste failed, falling back to main thread:", error);
+      }
+    }
     const insertSample = Math.floor(insertTime * originalBuffer.sampleRate);
     const newLength = originalBuffer.length + clipboardBuffer.length;
 
@@ -185,6 +209,13 @@ export const audioOperations = {
     audioBuffer: AudioBuffer,
     splitTime: number
   ): Promise<{ left: AudioBuffer; right: AudioBuffer }> {
+    if (USE_WORKER) {
+      try {
+        return await audioWorkerClient.split(audioBuffer, splitTime);
+      } catch (error) {
+        console.warn("Worker split failed, falling back to main thread:", error);
+      }
+    }
     const splitSample = Math.floor(splitTime * audioBuffer.sampleRate);
 
     const leftLength = Math.max(1, splitSample);

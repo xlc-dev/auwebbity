@@ -60,17 +60,28 @@ export default function App() {
   const audioOps = useAudioOperations();
 
   const handleFileImport = async (e: Event) => {
-    try {
-      const files = (e.target as HTMLInputElement).files;
-      if (!files || files.length === 0) return;
+    const input = e.target as HTMLInputElement;
+    const files = input.files;
+    if (!files || files.length === 0) {
+      if (fileInputRef) {
+        fileInputRef.value = "";
+      }
+      return;
+    }
 
+    try {
       if (files.length === 1) {
         await fileImport.handleFileImport(e);
       } else {
         await fileImport.handleFiles(files);
       }
+      toast.addToast(`Successfully imported ${files.length} file${files.length > 1 ? "s" : ""}`);
     } catch (err) {
       toast.addToast(getErrorMessage(err, "Failed to import audio"));
+    } finally {
+      if (fileInputRef) {
+        fileInputRef.value = "";
+      }
     }
   };
 
@@ -329,8 +340,8 @@ export default function App() {
     });
 
     if (!mobile) {
-      await initializeStore();
       setIsInitialized(true);
+      initializeStore().catch(console.error);
     }
   });
 

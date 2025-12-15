@@ -220,8 +220,8 @@ export const ExportMenu: Component<ExportMenuProps> = (props) => {
                   {(option) => {
                     const isSelected = () => scope() === option.value;
                     const isDisabled = () =>
-                      option.value === "selection" && !canExportSelection() ||
-                      option.value === "current" && !hasTrack();
+                      (option.value === "selection" && !canExportSelection()) ||
+                      (option.value === "current" && !hasTrack());
 
                     return (
                       <button

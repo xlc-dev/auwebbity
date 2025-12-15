@@ -1,4 +1,7 @@
 import { createAudioBuffer } from "./audioContext";
+import { audioWorkerClient } from "./audioWorkerClient";
+
+const USE_WORKER = typeof Worker !== "undefined";
 
 export function cloneAudioBuffer(audioBuffer: AudioBuffer): AudioBuffer {
   const clonedBuffer = createAudioBuffer(
@@ -16,12 +19,19 @@ export function cloneAudioBuffer(audioBuffer: AudioBuffer): AudioBuffer {
   return clonedBuffer;
 }
 
-export function mergeAudioBuffers(
+export async function mergeAudioBuffers(
   before: AudioBuffer,
   after: AudioBuffer,
   numberOfChannels: number,
   sampleRate: number
-): AudioBuffer {
+): Promise<AudioBuffer> {
+  if (USE_WORKER) {
+    try {
+      return await audioWorkerClient.merge(before, after, numberOfChannels, sampleRate);
+    } catch (error) {
+      console.warn("Worker merge failed, falling back to main thread:", error);
+    }
+  }
   const newLength = Math.max(1, before.length + after.length);
   const newBuffer = createAudioBuffer(numberOfChannels, newLength, sampleRate);
 

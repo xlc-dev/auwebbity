@@ -461,35 +461,57 @@ export const useWaveform = (
         }
       }
 
-      try {
-        wavesurfer.seekTo(progress);
-      } catch (err) {}
-
-      if (!isCurrent) return;
-
-      if (isPlaying) {
-        try {
-          if (duration > 0) {
-            const clampedTime = Math.max(0, Math.min(duration, currentTime));
-            const seekPosition = clampedTime / duration;
-
-            const currentPos = wavesurfer.getCurrentTime() / duration;
-            if (Math.abs(currentPos - seekPosition) > 0.001) {
-              wavesurfer.seekTo(seekPosition);
-            }
-
-            if (!wavesurfer.isPlaying() && clampedTime < duration) {
-              wavesurfer.play();
-            }
+      let rafId: number | null = null;
+      const updateSeek = () => {
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+          if (!wavesurfer || !isAudioLoaded) {
+            rafId = null;
+            return;
           }
-        } catch (err) {}
-      } else {
-        try {
-          if (wavesurfer.isPlaying()) {
-            wavesurfer.pause();
+          try {
+            wavesurfer.seekTo(progress);
+          } catch (err) {}
+
+          if (!isCurrent) {
+            rafId = null;
+            return;
           }
-        } catch (err) {}
-      }
+
+          if (isPlaying) {
+            try {
+              if (duration > 0) {
+                const clampedTime = Math.max(0, Math.min(duration, currentTime));
+                const seekPosition = clampedTime / duration;
+
+                const currentPos = wavesurfer.getCurrentTime() / duration;
+                if (Math.abs(currentPos - seekPosition) > 0.001) {
+                  wavesurfer.seekTo(seekPosition);
+                }
+
+                if (!wavesurfer.isPlaying() && clampedTime < duration) {
+                  wavesurfer.play();
+                }
+              }
+            } catch (err) {}
+          } else {
+            try {
+              if (wavesurfer.isPlaying()) {
+                wavesurfer.pause();
+              }
+            } catch (err) {}
+          }
+          rafId = null;
+        });
+      };
+
+      updateSeek();
+
+      return () => {
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+        }
+      };
     });
 
     wavesurfer.on("seeking", (time) => {
@@ -1142,17 +1164,38 @@ export const useWaveform = (
     const pixelsPerSecond = (containerWidth / maxDuration) * (store.zoom / 100);
     const zoomForThisTrack = pixelsPerSecond;
 
-    try {
-      wavesurfer.zoom(zoomForThisTrack);
-    } catch (err) {
-      if (
-        isAbortError(err) ||
-        (err instanceof Error &&
-          (err.message.includes("No audio loaded") || err.message.includes("aborted")))
-      ) {
-        return;
+    let rafId: number | null = null;
+    const updateZoom = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        if (!wavesurfer) {
+          rafId = null;
+          return;
+        }
+        try {
+          wavesurfer.zoom(zoomForThisTrack);
+        } catch (err) {
+          if (
+            isAbortError(err) ||
+            (err instanceof Error &&
+              (err.message.includes("No audio loaded") || err.message.includes("aborted")))
+          ) {
+            rafId = null;
+            return;
+          }
+        }
+        rafId = null;
+      });
+    };
+
+    const timeoutId = setTimeout(updateZoom, 100);
+
+    return () => {
+      clearTimeout(timeoutId);
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
       }
-    }
+    };
   });
 
   createEffect(() => {
@@ -1188,22 +1231,41 @@ export const useWaveform = (
 
     const colors = getWaveformColors(bgColor);
 
-    try {
-      const wavePaths = wrapper.querySelectorAll("wave > path");
-      wavePaths.forEach((path) => {
-        (path as SVGPathElement).setAttribute("stroke", colors.waveColor);
-      });
+    let rafId: number | null = null;
+    const updateColors = () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        if (!wavesurfer || !isAudioLoaded) {
+          rafId = null;
+          return;
+        }
+        try {
+          const wavePaths = wrapper.querySelectorAll("wave > path");
+          wavePaths.forEach((path) => {
+            (path as SVGPathElement).setAttribute("stroke", colors.waveColor);
+          });
 
-      const progressPaths = wrapper.querySelectorAll('[data-name="progress"] > path');
-      progressPaths.forEach((path) => {
-        (path as SVGPathElement).setAttribute("fill", colors.progressColor);
-      });
+          const progressPaths = wrapper.querySelectorAll('[data-name="progress"] > path');
+          progressPaths.forEach((path) => {
+            (path as SVGPathElement).setAttribute("fill", colors.progressColor);
+          });
 
-      const progressElements = wrapper.querySelectorAll('[data-name="progress"]');
-      progressElements.forEach((el) => {
-        (el as HTMLElement).style.backgroundColor = colors.progressColor;
+          const progressElements = wrapper.querySelectorAll('[data-name="progress"]');
+          progressElements.forEach((el) => {
+            (el as HTMLElement).style.backgroundColor = colors.progressColor;
+          });
+        } catch {}
+        rafId = null;
       });
-    } catch {}
+    };
+
+    updateColors();
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
   });
 
   createEffect(() => {

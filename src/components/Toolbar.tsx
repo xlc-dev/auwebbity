@@ -12,7 +12,11 @@ import { formatTime } from "../utils/time";
 interface ToolbarProps {
   waveform?: ReturnType<typeof import("../hooks/useWaveform").useWaveform>;
   onImportClick: () => void;
-  onExport: (format: "wav" | "mp3" | "ogg", quality: string) => void;
+  onExport: (
+    format: "wav" | "mp3" | "ogg",
+    quality: string,
+    scope: "all" | "current" | "selection"
+  ) => void;
   onReset: () => void;
   onUndo: () => void;
   onRedo: () => void;

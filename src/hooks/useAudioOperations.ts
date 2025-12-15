@@ -67,7 +67,7 @@ export const useAudioOperations = () => {
         store.selection.end
       );
 
-      const newBuffer = mergeAudioBuffers(
+      const newBuffer = await mergeAudioBuffers(
         before,
         after,
         currentTrack.audioBuffer.numberOfChannels,
@@ -137,7 +137,7 @@ export const useAudioOperations = () => {
         store.selection.end
       );
 
-      const newBuffer = mergeAudioBuffers(
+      const newBuffer = await mergeAudioBuffers(
         before,
         after,
         currentTrack.audioBuffer.numberOfChannels,

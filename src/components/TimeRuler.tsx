@@ -99,26 +99,47 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     const scrollContainer = container.parentElement;
     if (!scrollContainer) return;
 
+    let rafId: number | null = null;
     const updateWidth = () => {
-      const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
-      if (w > 0) {
-        setWidth(w);
-      }
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
+        if (w > 0) {
+          setWidth(w);
+        }
+        rafId = null;
+      });
     };
 
     updateWidth();
     const observer = new ResizeObserver(updateWidth);
     observer.observe(scrollContainer);
 
-    const zoom = store.zoom;
-    const tracksLength = store.tracks.length;
-    if (zoom !== undefined || tracksLength !== undefined) {
-      requestAnimationFrame(updateWidth);
-    }
-
     return () => {
       observer.disconnect();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
     };
+  });
+
+  createEffect(() => {
+    const dur = duration();
+    const tracks = store.tracks;
+    if (tracks.length > 0 && dur > 0) {
+      const container = props.containerRef();
+      if (container) {
+        const scrollContainer = container.parentElement;
+        if (scrollContainer) {
+          requestAnimationFrame(() => {
+            const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
+            if (w > 0 && w !== width()) {
+              setWidth(w);
+            }
+          });
+        }
+      }
+    }
   });
 
   const markers = createMemo(() => {

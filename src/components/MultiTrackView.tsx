@@ -10,6 +10,7 @@ import {
 } from "solid-js";
 import { useAudioStore, type WaveformRenderer } from "../stores/audioStore";
 import { useWaveform } from "../hooks/useWaveform";
+import { useViewportTracks } from "../hooks/useViewportTracks";
 import { TimeRuler } from "./TimeRuler";
 import { Tooltip } from "./Tooltip";
 import { formatTime } from "../utils/time";
@@ -92,20 +93,21 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     onSeek: props.onSeekAll,
   });
 
-  const trackWidth = createMemo(() => {
+  const maxDuration = createMemo(() => {
     const tracks = store.tracks;
-    if (tracks.length === 0) return "100%";
-    let maxDur = 0;
+    if (tracks.length === 0) return 0;
+    let max = 0;
     for (const track of tracks) {
-      if (track.duration > maxDur) maxDur = track.duration;
+      if (track.duration > max) max = track.duration;
     }
+    return max;
+  });
+
+  const trackWidth = createMemo(() => {
+    const maxDur = maxDuration();
     if (maxDur <= 0 || props.track.duration <= 0) return "100%";
     const width = containerWidth();
     if (width <= 0) return "100%";
-
-    if (store.zoom <= 100) {
-      return "100%";
-    }
 
     const pixelsPerSecond = (width / maxDur) * (store.zoom / 100);
     const trackWidthPx = props.track.duration * pixelsPerSecond;
@@ -118,36 +120,63 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
     const scrollContainer = containerRef?.parentElement;
     if (!scrollContainer) return;
 
+    let rafId: number | null = null;
     const updateWidth = () => {
-      const width = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
-      if (width > 0) {
-        setContainerWidth(width);
-      }
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        const width = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
+        if (width > 0) {
+          setContainerWidth(width);
+        }
+        rafId = null;
+      });
     };
 
     updateWidth();
     const observer = new ResizeObserver(updateWidth);
     observer.observe(scrollContainer);
 
-    const zoom = store.zoom;
-    const tracksLength = store.tracks.length;
-    if (zoom !== undefined || tracksLength !== undefined) {
-      updateWidth();
+    return () => {
+      observer.disconnect();
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  });
+
+  createEffect(() => {
+    const container = containerRef;
+    if (!container) return;
+
+    if (props.isCurrent && props.track.audioUrl) {
+      waveform.loadAudio(props.track.audioUrl);
+      props.onWaveformReady?.(waveform, props.track.id);
+      return;
     }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry?.isIntersecting && props.track.audioUrl) {
+          waveform.loadAudio(props.track.audioUrl);
+          props.onWaveformReady?.(waveform, props.track.id);
+          observer.disconnect();
+        }
+      },
+      {
+        rootMargin: "200px",
+        threshold: 0.01,
+      }
+    );
+
+    observer.observe(container);
 
     return () => observer.disconnect();
   });
 
-  onMount(() => {
-    if (props.track.audioUrl) {
-      waveform.loadAudio(props.track.audioUrl);
-    }
-    props.onWaveformReady?.(waveform, props.track.id);
-  });
-
   createEffect(() => {
     const audioUrl = props.track.audioUrl;
-    if (audioUrl && waveform) {
+    if (audioUrl && waveform && containerRef && (props.isCurrent || containerRef)) {
       waveform.loadAudio(audioUrl);
     }
   });
@@ -1043,8 +1072,15 @@ interface MultiTrackViewProps {
 }
 
 export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
-  const { store, setCurrentTrackId, deleteTrack, duplicateTrack, setAudioStore, reorderTracks, removeMarker } =
-    useAudioStore();
+  const {
+    store,
+    setCurrentTrackId,
+    deleteTrack,
+    duplicateTrack,
+    setAudioStore,
+    reorderTracks,
+    removeMarker,
+  } = useAudioStore();
   const [mainContainerRef, setMainContainerRef] = createSignal<HTMLDivElement | undefined>(
     undefined
   );
@@ -1053,6 +1089,8 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
   );
   const [draggedTrackId, setDraggedTrackId] = createSignal<string | null>(null);
   const [dragOverIndex, setDragOverIndex] = createSignal<number | null>(null);
+
+  const { visibleTracks } = useViewportTracks(() => store.tracks, tracksContainerRef);
 
   const handleContainerRef = (el: HTMLDivElement) => {
     if (!mainContainerRef()) {
@@ -1288,8 +1326,16 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                   />
                 )}
               </For>
-              <For each={store.tracks}>
-                {(track, index) => {
+              <Show when={visibleTracks().length > 0 && (visibleTracks()[0]?.index ?? 0) > 0}>
+                <div
+                  style={{
+                    height: `${(visibleTracks()[0]?.index ?? 0) * 200}px`,
+                  }}
+                />
+              </Show>
+              <For each={visibleTracks()}>
+                {({ track, index: viewportIndex }) => {
+                  const index = () => viewportIndex;
                   const handleDragStart = (trackId: string) => {
                     setDraggedTrackId(trackId);
                   };
@@ -1382,6 +1428,24 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
                   );
                 }}
               </For>
+              <Show
+                when={
+                  visibleTracks().length > 0 &&
+                  (() => {
+                    const lastVisible = visibleTracks()[visibleTracks().length - 1];
+                    return lastVisible && store.tracks.length - (lastVisible.index ?? 0) - 1 > 0;
+                  })()
+                }
+              >
+                <div
+                  style={{
+                    height: `${(() => {
+                      const lastVisible = visibleTracks()[visibleTracks().length - 1];
+                      return (store.tracks.length - (lastVisible?.index ?? 0) - 1) * 200;
+                    })()}px`,
+                  }}
+                />
+              </Show>
             </div>
           </div>
         </div>

@@ -87,12 +87,31 @@ interface PersistedState {
   markers?: number[];
 }
 
+let dbCache: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 async function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbCache) return dbCache;
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => {
+      dbPromise = null;
+      reject(request.error);
+    };
+    request.onsuccess = () => {
+      dbCache = request.result;
+      dbPromise = null;
+      dbCache.onclose = () => {
+        dbCache = null;
+      };
+      dbCache.onerror = () => {
+        dbCache = null;
+      };
+      resolve(dbCache);
+    };
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
@@ -101,6 +120,8 @@ async function openDB(): Promise<IDBDatabase> {
       }
     };
   });
+
+  return dbPromise;
 }
 
 function promisifyRequest<T>(request: IDBRequest<T>): Promise<T> {
@@ -262,23 +283,116 @@ async function loadState(): Promise<
 
     const persistedState: PersistedState = JSON.parse(stored);
 
-    const tracks: AudioTrack[] = await Promise.all(
-      persistedState.tracks.map(async (track) => ({
-        ...track,
-        audioBuffer: await loadAudioBuffer(track.id),
-        backgroundColor: track.backgroundColor || null,
-        volume: track.volume ?? 1,
-        pan: track.pan ?? 0,
-        muted: track.muted ?? false,
-        soloed: track.soloed ?? false,
-        waveformRenderer: (track as any).waveformRenderer || "bars",
-      }))
-    );
+    const currentTrackId = persistedState.currentTrackId;
+    const loadTrackBuffer = async (trackId: string) => {
+      try {
+        const buffer = await loadAudioBuffer(trackId);
+        if (buffer) {
+          const blob = await audioOperations.audioBufferToBlob(buffer);
+          const audioUrl = URL.createObjectURL(blob);
+          setAudioStore("tracks", (tracks) => {
+            const newTracks = [...tracks];
+            const trackIndex = newTracks.findIndex((t) => t.id === trackId);
+            if (trackIndex !== -1 && newTracks[trackIndex]) {
+              newTracks[trackIndex] = {
+                ...newTracks[trackIndex]!,
+                audioBuffer: buffer,
+                audioUrl,
+              };
+            }
+            return newTracks;
+          });
+        }
+      } catch (error) {
+        console.error(`Failed to load audio buffer for track ${trackId}:`, error);
+      }
+    };
 
-    let clipboard: AudioBuffer | null = null;
-    try {
-      clipboard = await loadAudioBuffer("clipboard");
-    } catch {}
+    const tracks: AudioTrack[] = persistedState.tracks.map((track) => ({
+      ...track,
+      audioBuffer: null,
+      audioUrl: "",
+      backgroundColor: track.backgroundColor || null,
+      volume: track.volume ?? 1,
+      pan: track.pan ?? 0,
+      muted: track.muted ?? false,
+      soloed: track.soloed ?? false,
+      waveformRenderer: (track as any).waveformRenderer || "bars",
+    }));
+
+    const loadCurrentTrack = async () => {
+      if (!currentTrackId) return;
+      const trackIndex = tracks.findIndex((t) => t.id === currentTrackId);
+      if (trackIndex === -1) return;
+
+      try {
+        const audioBuffer = await loadAudioBuffer(currentTrackId);
+        if (audioBuffer) {
+          const blob = await audioOperations.audioBufferToBlob(audioBuffer);
+          const audioUrl = URL.createObjectURL(blob);
+          setAudioStore("tracks", (tracks) =>
+            tracks.map((t) =>
+              t.id === currentTrackId
+                ? {
+                    ...t,
+                    audioBuffer,
+                    audioUrl,
+                  }
+                : t
+            )
+          );
+        }
+      } catch (error) {
+        console.error(`Failed to load current track buffer:`, error);
+      }
+    };
+
+    loadCurrentTrack().catch(console.error);
+
+    persistedState.tracks.forEach((track, index) => {
+      if (track.id === currentTrackId) return;
+
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(
+          () => {
+            loadTrackBuffer(track.id).catch(console.error);
+          },
+          { timeout: index < 5 ? 1000 : 3000 }
+        );
+      } else {
+        setTimeout(
+          () => {
+            loadTrackBuffer(track.id).catch(console.error);
+          },
+          index < 5 ? 100 : 500
+        );
+      }
+    });
+
+    if (typeof requestIdleCallback !== "undefined") {
+      requestIdleCallback(
+        () => {
+          loadAudioBuffer("clipboard")
+            .then((buffer) => {
+              if (buffer) {
+                setAudioStore("clipboard", buffer);
+              }
+            })
+            .catch(() => {});
+        },
+        { timeout: 3000 }
+      );
+    } else {
+      setTimeout(() => {
+        loadAudioBuffer("clipboard")
+          .then((buffer) => {
+            if (buffer) {
+              setAudioStore("clipboard", buffer);
+            }
+          })
+          .catch(() => {});
+      }, 300);
+    }
 
     const restoreSnapshot = async (persisted: PersistedSnapshot): Promise<ProjectSnapshot> => {
       const restoredTracks = await Promise.all(
@@ -313,18 +427,67 @@ async function loadState(): Promise<
       };
     };
 
-    const undoStack: ProjectSnapshot[] = persistedState.undoStack
-      ? await Promise.all(persistedState.undoStack.map(restoreSnapshot))
-      : [];
+    const undoStack: ProjectSnapshot[] = [];
+    const redoStack: ProjectSnapshot[] = [];
 
-    const redoStack: ProjectSnapshot[] = persistedState.redoStack
-      ? await Promise.all(persistedState.redoStack.map(restoreSnapshot))
-      : [];
+    if (persistedState.undoStack && persistedState.undoStack.length > 0) {
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(
+          () => {
+            Promise.all(persistedState.undoStack!.map(restoreSnapshot))
+              .then((stack) => {
+                undoStack.length = 0;
+                undoStack.push(...stack);
+                setAudioStore("undoStackLength", undoStack.length);
+              })
+              .catch(console.error);
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        setTimeout(() => {
+          Promise.all(persistedState.undoStack!.map(restoreSnapshot))
+            .then((stack) => {
+              undoStack.length = 0;
+              undoStack.push(...stack);
+              setAudioStore("undoStackLength", undoStack.length);
+            })
+            .catch(console.error);
+        }, 500);
+      }
+    }
+
+    if (persistedState.redoStack && persistedState.redoStack.length > 0) {
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(
+          () => {
+            Promise.all(persistedState.redoStack!.map(restoreSnapshot))
+              .then((stack) => {
+                redoStack.length = 0;
+                redoStack.push(...stack);
+                setAudioStore("redoStackLength", redoStack.length);
+              })
+              .catch(console.error);
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        setTimeout(() => {
+          Promise.all(persistedState.redoStack!.map(restoreSnapshot))
+            .then((stack) => {
+              redoStack.length = 0;
+              redoStack.push(...stack);
+              setAudioStore("redoStackLength", redoStack.length);
+            })
+            .catch(console.error);
+        }, 500);
+      }
+    }
 
     return {
       tracks,
       currentTrackId: persistedState.currentTrackId,
-      clipboard,
+      clipboard: null,
       isPlaying: false,
       undoStack,
       redoStack,
@@ -365,13 +528,17 @@ const [audioStore, setAudioStore] = createStore<AudioState>({
 });
 
 let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+let saveScheduled = false;
 const scheduleSave = () => {
+  if (saveScheduled) return;
+  saveScheduled = true;
   if (saveTimeout !== null) {
     clearTimeout(saveTimeout);
   }
   saveTimeout = setTimeout(() => {
+    saveScheduled = false;
     saveState(audioStore).catch(console.error);
-  }, 500);
+  }, 1000);
 };
 
 const MAX_HISTORY = 50;
