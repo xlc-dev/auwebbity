@@ -42,8 +42,18 @@ interface ToolbarProps {
   onNoiseReduction: (reductionAmount: number, scope: "all" | "track" | "selection") => void;
   onChangeSpeed: (speedFactor: number, scope: "all" | "track" | "selection") => void;
   onChangePitch: (pitchFactor: number, scope: "all" | "track" | "selection") => void;
-  onCompressor: (threshold: number, ratio: number, attack: number, release: number, knee: number, scope: "all" | "track" | "selection") => void;
+  onCompressor: (
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number,
+    knee: number,
+    scope: "all" | "track" | "selection"
+  ) => void;
   onLimiter: (threshold: number, release: number, scope: "all" | "track" | "selection") => void;
+  onEq: (frequency: number, gain: number, q: number, scope: "all" | "track" | "selection") => void;
+  onHighPassFilter: (cutoffFrequency: number, scope: "all" | "track" | "selection") => void;
+  onLowPassFilter: (cutoffFrequency: number, scope: "all" | "track" | "selection") => void;
   onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
@@ -251,6 +261,9 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             onChangePitch={props.onChangePitch}
             onCompressor={props.onCompressor}
             onLimiter={props.onLimiter}
+            onEq={props.onEq}
+            onHighPassFilter={props.onHighPassFilter}
+            onLowPassFilter={props.onLowPassFilter}
             disabled={props.isExporting || !getCurrentTrack()}
           />
         </div>

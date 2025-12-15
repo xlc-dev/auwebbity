@@ -17,8 +17,18 @@ interface EffectsMenuProps {
   onNoiseReduction: (reductionAmount: number, scope: EffectScope) => void;
   onChangeSpeed: (speedFactor: number, scope: EffectScope) => void;
   onChangePitch: (pitchFactor: number, scope: EffectScope) => void;
-  onCompressor: (threshold: number, ratio: number, attack: number, release: number, knee: number, scope: EffectScope) => void;
+  onCompressor: (
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number,
+    knee: number,
+    scope: EffectScope
+  ) => void;
   onLimiter: (threshold: number, release: number, scope: EffectScope) => void;
+  onEq: (frequency: number, gain: number, q: number, scope: EffectScope) => void;
+  onHighPassFilter: (cutoffFrequency: number, scope: EffectScope) => void;
+  onLowPassFilter: (cutoffFrequency: number, scope: EffectScope) => void;
   disabled?: boolean;
 }
 
@@ -47,6 +57,9 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   const [showPitchDialog, setShowPitchDialog] = createSignal(false);
   const [showCompressorDialog, setShowCompressorDialog] = createSignal(false);
   const [showLimiterDialog, setShowLimiterDialog] = createSignal(false);
+  const [showEqDialog, setShowEqDialog] = createSignal(false);
+  const [showHighPassDialog, setShowHighPassDialog] = createSignal(false);
+  const [showLowPassDialog, setShowLowPassDialog] = createSignal(false);
   const [amplifyValue, setAmplifyValue] = createSignal("1.5");
   const [reverbRoomSize, setReverbRoomSize] = createSignal("2.0");
   const [reverbWetLevel, setReverbWetLevel] = createSignal("0.5");
@@ -63,6 +76,11 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
   const [compressorKnee, setCompressorKnee] = createSignal("2");
   const [limiterThreshold, setLimiterThreshold] = createSignal("-1");
   const [limiterRelease, setLimiterRelease] = createSignal("0.01");
+  const [eqFrequency, setEqFrequency] = createSignal("1000");
+  const [eqGain, setEqGain] = createSignal("0");
+  const [eqQ, setEqQ] = createSignal("1");
+  const [highPassCutoff, setHighPassCutoff] = createSignal("200");
+  const [lowPassCutoff, setLowPassCutoff] = createSignal("5000");
   const [scope, setScope] = createSignal<EffectScope>("track");
   let containerRef: HTMLDivElement | undefined;
   let buttonRef: HTMLButtonElement | undefined;
@@ -90,6 +108,9 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     setShowPitchDialog(false);
     setShowCompressorDialog(false);
     setShowLimiterDialog(false);
+    setShowEqDialog(false);
+    setShowHighPassDialog(false);
+    setShowLowPassDialog(false);
   };
 
   const updateMenuPosition = () => {
@@ -105,7 +126,18 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     const target = e.target as Node;
     const isInsideContainer = containerRef?.contains(target);
     const isInsidePortal = portalRef?.contains(target);
-    const hasDialogOpen = showAmplifyDialog() || showReverbDialog() || showDelayDialog() || showNoiseReductionDialog() || showSpeedDialog() || showPitchDialog() || showCompressorDialog() || showLimiterDialog();
+    const hasDialogOpen =
+      showAmplifyDialog() ||
+      showReverbDialog() ||
+      showDelayDialog() ||
+      showNoiseReductionDialog() ||
+      showSpeedDialog() ||
+      showPitchDialog() ||
+      showCompressorDialog() ||
+      showLimiterDialog() ||
+      showEqDialog() ||
+      showHighPassDialog() ||
+      showLowPassDialog();
 
     if (!isInsideContainer && !isInsidePortal && !hasDialogOpen) {
       closeAll();
@@ -114,7 +146,19 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (e.key === "Escape") {
-      const wasOpen = isOpen() || showAmplifyDialog() || showReverbDialog() || showDelayDialog() || showNoiseReductionDialog() || showSpeedDialog() || showPitchDialog() || showCompressorDialog() || showLimiterDialog();
+      const wasOpen =
+        isOpen() ||
+        showAmplifyDialog() ||
+        showReverbDialog() ||
+        showDelayDialog() ||
+        showNoiseReductionDialog() ||
+        showSpeedDialog() ||
+        showPitchDialog() ||
+        showCompressorDialog() ||
+        showLimiterDialog() ||
+        showEqDialog() ||
+        showHighPassDialog() ||
+        showLowPassDialog();
       if (wasOpen) {
         e.stopPropagation();
         closeAll();
@@ -323,6 +367,45 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     closeAll();
   };
 
+  const handleEq = () => {
+    const frequency = parseFloat(eqFrequency());
+    const gain = parseFloat(eqGain());
+    const q = parseFloat(eqQ());
+    if (
+      isNaN(frequency) ||
+      frequency < 20 ||
+      frequency > 20000 ||
+      isNaN(gain) ||
+      gain < -20 ||
+      gain > 20 ||
+      isNaN(q) ||
+      q < 0.1 ||
+      q > 30
+    ) {
+      return;
+    }
+    props.onEq(frequency, gain, q, getEffectiveScope());
+    closeAll();
+  };
+
+  const handleHighPassFilter = () => {
+    const cutoff = parseFloat(highPassCutoff());
+    if (isNaN(cutoff) || cutoff < 20 || cutoff > 20000) {
+      return;
+    }
+    props.onHighPassFilter(cutoff, getEffectiveScope());
+    closeAll();
+  };
+
+  const handleLowPassFilter = () => {
+    const cutoff = parseFloat(lowPassCutoff());
+    if (isNaN(cutoff) || cutoff < 20 || cutoff > 20000) {
+      return;
+    }
+    props.onLowPassFilter(cutoff, getEffectiveScope());
+    closeAll();
+  };
+
   const amplifyPercent = () => {
     const gain = parseFloat(amplifyValue());
     if (isNaN(gain)) return "";
@@ -349,6 +432,9 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
     { label: "Change Pitch...", onClick: () => setShowPitchDialog(true) },
     { label: "Compressor...", onClick: () => setShowCompressorDialog(true) },
     { label: "Limiter...", onClick: () => setShowLimiterDialog(true) },
+    { label: "EQ...", onClick: () => setShowEqDialog(true) },
+    { label: "High-Pass Filter...", onClick: () => setShowHighPassDialog(true) },
+    { label: "Low-Pass Filter...", onClick: () => setShowLowPassDialog(true) },
   ];
 
   const menuButtonClass =
@@ -405,7 +491,21 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <Show when={!showAmplifyDialog() && !showReverbDialog() && !showDelayDialog() && !showNoiseReductionDialog() && !showSpeedDialog() && !showPitchDialog() && !showCompressorDialog() && !showLimiterDialog()}>
+            <Show
+              when={
+                !showAmplifyDialog() &&
+                !showReverbDialog() &&
+                !showDelayDialog() &&
+                !showNoiseReductionDialog() &&
+                !showSpeedDialog() &&
+                !showPitchDialog() &&
+                !showCompressorDialog() &&
+                !showLimiterDialog() &&
+                !showEqDialog() &&
+                !showHighPassDialog() &&
+                !showLowPassDialog()
+              }
+            >
               <div class="px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                 <div class="text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-2">
                   Apply to:
@@ -836,7 +936,9 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                     if (isNaN(pitch)) return "";
                     const semitones = (12 * Math.log2(pitch)).toFixed(1);
                     if (pitch === 1) return "Normal pitch";
-                    return pitch > 1 ? `+${semitones} semitones (higher)` : `${semitones} semitones (lower)`;
+                    return pitch > 1
+                      ? `+${semitones} semitones (higher)`
+                      : `${semitones} semitones (lower)`;
                   })()}
                 </div>
                 <div class="mt-2 text-[0.625rem] text-[var(--color-text-secondary)]">
@@ -1051,6 +1153,201 @@ export const EffectsMenu: Component<EffectsMenuProps> = (props) => {
                   class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
                   onClick={() => {
                     setShowLimiterDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showEqDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Frequency (Hz, 20-20000)
+                </label>
+                <input
+                  type="number"
+                  min="20"
+                  max="20000"
+                  step="1"
+                  value={eqFrequency()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 20 && num <= 20000)) {
+                      setEqFrequency(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)] mb-3"
+                  autofocus
+                />
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Gain (dB, -20 to +20)
+                </label>
+                <input
+                  type="number"
+                  min="-20"
+                  max="20"
+                  step="0.1"
+                  value={eqGain()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= -20 && num <= 20)) {
+                      setEqGain(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)] mb-3"
+                />
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Q (0.1-30)
+                </label>
+                <input
+                  type="number"
+                  min="0.1"
+                  max="30"
+                  step="0.1"
+                  value={eqQ()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 0.1 && num <= 30)) {
+                      setEqQ(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                />
+                <div class="mt-2 text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Note: Boosts or cuts a specific frequency range
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply EQ to ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleEq}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowEqDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showHighPassDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Cutoff Frequency (Hz, 20-20000)
+                </label>
+                <input
+                  type="number"
+                  min="20"
+                  max="20000"
+                  step="1"
+                  value={highPassCutoff()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 20 && num <= 20000)) {
+                      setHighPassCutoff(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                  autofocus
+                />
+                <div class="mt-2 text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Note: Removes frequencies below the cutoff frequency
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply high-pass filter to ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleHighPassFilter}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowHighPassDialog(false);
+                    requestAnimationFrame(updateMenuPosition);
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
+            <Show when={showLowPassDialog()}>
+              <div
+                class="p-3 border-b border-[var(--color-border)]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div class="mb-2 px-1.5 py-1 bg-[var(--color-bg-secondary)] rounded text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Applying to: <span class="font-medium">{getScopeLabel()}</span>
+                </div>
+                <label class="block text-[0.75rem] font-medium text-[var(--color-text-secondary)] mb-1.5">
+                  Cutoff Frequency (Hz, 20-20000)
+                </label>
+                <input
+                  type="number"
+                  min="20"
+                  max="20000"
+                  step="1"
+                  value={lowPassCutoff()}
+                  onInput={(e) => {
+                    const val = e.currentTarget.value;
+                    const num = parseFloat(val);
+                    if (val === "" || (!isNaN(num) && num >= 20 && num <= 20000)) {
+                      setLowPassCutoff(val);
+                    }
+                  }}
+                  class="w-full py-1.5 px-2 bg-[var(--color-bg)] border border-[var(--color-border)] rounded text-[var(--color-text)] text-[0.8125rem] focus:outline-none focus:border-[var(--color-primary)]"
+                  autofocus
+                />
+                <div class="mt-2 text-[0.625rem] text-[var(--color-text-secondary)]">
+                  Note: Removes frequencies above the cutoff frequency
+                </div>
+              </div>
+              <div class="flex gap-2 p-2">
+                <Tooltip label={`Apply low-pass filter to ${getScopeLabel().toLowerCase()}`}>
+                  <button
+                    type="button"
+                    class="flex-1 py-1.5 px-3 bg-[var(--color-primary)] text-white border-0 rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-primary-hover)]"
+                    onClick={handleLowPassFilter}
+                  >
+                    Apply
+                  </button>
+                </Tooltip>
+                <button
+                  type="button"
+                  class="py-1.5 px-4 bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded text-[0.8125rem] font-medium cursor-pointer transition-all duration-150 hover:bg-[var(--color-hover)]"
+                  onClick={() => {
+                    setShowLowPassDialog(false);
                     requestAnimationFrame(updateMenuPosition);
                   }}
                 >

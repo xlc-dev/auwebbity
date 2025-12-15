@@ -333,6 +333,38 @@ export const useAudioOperations = () => {
     );
   };
 
+  const handleEq = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    frequency: number,
+    gain: number,
+    q: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.eq(buffer, frequency, gain, q, start, end)
+    );
+  };
+
+  const handleHighPassFilter = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    cutoffFrequency: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.highPassFilter(buffer, cutoffFrequency, start, end)
+    );
+  };
+
+  const handleLowPassFilter = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    cutoffFrequency: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.lowPassFilter(buffer, cutoffFrequency, start, end)
+    );
+  };
+
   return {
     handleCut,
     handleCopy,
@@ -351,6 +383,9 @@ export const useAudioOperations = () => {
     handleChangePitch,
     handleCompressor,
     handleLimiter,
+    handleEq,
+    handleHighPassFilter,
+    handleLowPassFilter,
     isLoading,
   };
 };

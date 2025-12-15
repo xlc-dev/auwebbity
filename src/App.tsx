@@ -358,263 +358,306 @@ export default function App() {
         <MobileBlocker />
       </Show>
       <Show when={!isMobile()}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="audio/*"
-        multiple
-        onChange={handleFileImport}
-        style={{ display: "none" }}
-      />
-      <input
-        ref={projectInputRef}
-        type="file"
-        accept=".json,application/json"
-        onChange={handleProjectLoad}
-        style={{ display: "none" }}
-      />
-      <Show when={isDragging()}>
-        <div class="fixed inset-0 z-[2000] bg-[var(--color-primary)]/20 border-4 border-dashed border-[var(--color-primary)] flex items-center justify-center pointer-events-none">
-          <div class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-6 shadow-lg">
-            <div class="flex flex-col items-center gap-3">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                class="text-[var(--color-primary)]"
-              >
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              <p class="text-[var(--color-text)] font-medium text-lg">Drop audio files here</p>
-              <p class="text-[var(--color-text-secondary)] text-sm">Release to add tracks</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          multiple
+          onChange={handleFileImport}
+          style={{ display: "none" }}
+        />
+        <input
+          ref={projectInputRef}
+          type="file"
+          accept=".json,application/json"
+          onChange={handleProjectLoad}
+          style={{ display: "none" }}
+        />
+        <Show when={isDragging()}>
+          <div class="fixed inset-0 z-[2000] bg-[var(--color-primary)]/20 border-4 border-dashed border-[var(--color-primary)] flex items-center justify-center pointer-events-none">
+            <div class="bg-[var(--color-bg-elevated)] border border-[var(--color-border)] rounded-lg p-6 shadow-lg">
+              <div class="flex flex-col items-center gap-3">
+                <svg
+                  width="48"
+                  height="48"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="text-[var(--color-primary)]"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                <p class="text-[var(--color-text)] font-medium text-lg">Drop audio files here</p>
+                <p class="text-[var(--color-text-secondary)] text-sm">Release to add tracks</p>
+              </div>
             </div>
           </div>
-        </div>
-      </Show>
-      <Show when={isInitialized()}>
-        <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 border-t border-[var(--color-border)] pb-[60px] sm:pb-[75px] md:pb-[85px] lg:pb-[95px] p-2 sm:p-3 md:p-4">
-          <MultiTrackView
-            onWaveformReady={(waveform, trackId) => {
-              setWaveformMap((map) => {
-                const newMap = new Map(map);
-                newMap.set(trackId, waveform);
-                return newMap;
-              });
-            }}
-            onSeekAll={seekAllTracks}
-            onSelectionCreated={(trackId) => {
-              const map = waveformMap();
-              map.forEach((waveform, id) => {
-                if (id !== trackId) {
-                  waveform.clearSelection();
-                }
-              });
-            }}
-          />
-        </div>
-      </Show>
-      <Toolbar
-        waveform={waveformRef() ?? undefined}
-        onPlayAll={playAllTracks}
-        onPauseAll={pauseAllTracks}
-        onStopAll={stopAllTracks}
-        onSeekAll={seekAllTracks}
-        onImportClick={handleImportClick}
-        onExport={handleExport}
-        onReset={handleReset}
-        onUndo={() => undo()}
-        onRedo={() => redo()}
-        onRecordClick={async () => {
-          if (recorder.isRecording()) {
-            recorder.stopRecording();
-          } else {
-            try {
-              await recorder.startRecording();
-            } catch (err) {
-              const error = recorder.error() || getErrorMessage(err, "Failed to start recording");
-              toast.addToast(error);
-              recorder.clearError();
+        </Show>
+        <Show when={isInitialized()}>
+          <div class="flex-1 relative overflow-auto bg-[var(--color-bg)] m-0 border-t border-[var(--color-border)] pb-[60px] sm:pb-[75px] md:pb-[85px] lg:pb-[95px] p-2 sm:p-3 md:p-4">
+            <MultiTrackView
+              onWaveformReady={(waveform, trackId) => {
+                setWaveformMap((map) => {
+                  const newMap = new Map(map);
+                  newMap.set(trackId, waveform);
+                  return newMap;
+                });
+              }}
+              onSeekAll={seekAllTracks}
+              onSelectionCreated={(trackId) => {
+                const map = waveformMap();
+                map.forEach((waveform, id) => {
+                  if (id !== trackId) {
+                    waveform.clearSelection();
+                  }
+                });
+              }}
+            />
+          </div>
+        </Show>
+        <Toolbar
+          waveform={waveformRef() ?? undefined}
+          onPlayAll={playAllTracks}
+          onPauseAll={pauseAllTracks}
+          onStopAll={stopAllTracks}
+          onSeekAll={seekAllTracks}
+          onImportClick={handleImportClick}
+          onExport={handleExport}
+          onReset={handleReset}
+          onUndo={() => undo()}
+          onRedo={() => redo()}
+          onRecordClick={async () => {
+            if (recorder.isRecording()) {
+              recorder.stopRecording();
+            } else {
+              try {
+                await recorder.startRecording();
+              } catch (err) {
+                const error = recorder.error() || getErrorMessage(err, "Failed to start recording");
+                toast.addToast(error);
+                recorder.clearError();
+              }
             }
+          }}
+          canUndo={canUndo()}
+          canRedo={canRedo()}
+          isExporting={isExporting()}
+          hasSelection={store.selection !== null}
+          recorder={recorder}
+          onNormalize={(scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleNormalize(scope, (trackId) => waveformMap().get(trackId) || null),
+              "Failed to normalize"
+            )
           }
-        }}
-        canUndo={canUndo()}
-        canRedo={canRedo()}
-        isExporting={isExporting()}
-        hasSelection={store.selection !== null}
-        recorder={recorder}
-        onNormalize={(scope) =>
-          handleOperation(
-            () => audioOps.handleNormalize(scope, (trackId) => waveformMap().get(trackId) || null),
-            "Failed to normalize"
-          )
-        }
-        onAmplify={(gain, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleAmplify(scope, (trackId) => waveformMap().get(trackId) || null, gain),
-            "Failed to amplify"
-          )
-        }
-        onSilence={(scope) =>
-          handleOperation(
-            () => audioOps.handleSilence(scope, (trackId) => waveformMap().get(trackId) || null),
-            "Failed to silence"
-          )
-        }
-        onReverse={(scope) =>
-          handleOperation(
-            () => audioOps.handleReverse(scope, (trackId) => waveformMap().get(trackId) || null),
-            "Failed to reverse"
-          )
-        }
-        onFadeIn={(scope) =>
-          handleOperation(
-            () => audioOps.handleFadeIn(scope, (trackId) => waveformMap().get(trackId) || null),
-            "Failed to fade in"
-          )
-        }
-        onFadeOut={(scope) =>
-          handleOperation(
-            () => audioOps.handleFadeOut(scope, (trackId) => waveformMap().get(trackId) || null),
-            "Failed to fade out"
-          )
-        }
-        onReverb={(roomSize, wetLevel, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleReverb(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                roomSize,
-                wetLevel
-              ),
-            "Failed to apply reverb"
-          )
-        }
-        onDelay={(delayTime, feedback, wetLevel, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleDelay(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                delayTime,
-                feedback,
-                wetLevel
-              ),
-            "Failed to apply delay"
-          )
-        }
-        onNoiseReduction={(reductionAmount, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleNoiseReduction(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                reductionAmount
-              ),
-            "Failed to apply noise reduction"
-          )
-        }
-        onChangeSpeed={(speedFactor, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleChangeSpeed(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                speedFactor
-              ),
-            "Failed to change speed"
-          )
-        }
-        onChangePitch={(pitchFactor, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleChangePitch(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                pitchFactor
-              ),
-            "Failed to change pitch"
-          )
-        }
-        onCompressor={(threshold, ratio, attack, release, knee, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleCompressor(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                threshold,
-                ratio,
-                attack,
-                release,
-                knee
-              ),
-            "Failed to apply compressor"
-          )
-        }
-        onLimiter={(threshold, release, scope) =>
-          handleOperation(
-            () =>
-              audioOps.handleLimiter(
-                scope,
-                (trackId) => waveformMap().get(trackId) || null,
-                threshold,
-                release
-              ),
-            "Failed to apply limiter"
-          )
-        }
-        onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
-        onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
-        onPaste={createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste")}
-        onDelete={createOperationHandler(
-          () => audioOps.handleDelete(waveformRef),
-          "Failed to delete"
-        )}
-        onSplit={async () => {
-          const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
-          if (!currentTrack?.audioBuffer) return;
+          onAmplify={(gain, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleAmplify(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  gain
+                ),
+              "Failed to amplify"
+            )
+          }
+          onSilence={(scope) =>
+            handleOperation(
+              () => audioOps.handleSilence(scope, (trackId) => waveformMap().get(trackId) || null),
+              "Failed to silence"
+            )
+          }
+          onReverse={(scope) =>
+            handleOperation(
+              () => audioOps.handleReverse(scope, (trackId) => waveformMap().get(trackId) || null),
+              "Failed to reverse"
+            )
+          }
+          onFadeIn={(scope) =>
+            handleOperation(
+              () => audioOps.handleFadeIn(scope, (trackId) => waveformMap().get(trackId) || null),
+              "Failed to fade in"
+            )
+          }
+          onFadeOut={(scope) =>
+            handleOperation(
+              () => audioOps.handleFadeOut(scope, (trackId) => waveformMap().get(trackId) || null),
+              "Failed to fade out"
+            )
+          }
+          onReverb={(roomSize, wetLevel, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleReverb(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  roomSize,
+                  wetLevel
+                ),
+              "Failed to apply reverb"
+            )
+          }
+          onDelay={(delayTime, feedback, wetLevel, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleDelay(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  delayTime,
+                  feedback,
+                  wetLevel
+                ),
+              "Failed to apply delay"
+            )
+          }
+          onNoiseReduction={(reductionAmount, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleNoiseReduction(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  reductionAmount
+                ),
+              "Failed to apply noise reduction"
+            )
+          }
+          onChangeSpeed={(speedFactor, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleChangeSpeed(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  speedFactor
+                ),
+              "Failed to change speed"
+            )
+          }
+          onChangePitch={(pitchFactor, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleChangePitch(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  pitchFactor
+                ),
+              "Failed to change pitch"
+            )
+          }
+          onCompressor={(threshold, ratio, attack, release, knee, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleCompressor(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  threshold,
+                  ratio,
+                  attack,
+                  release,
+                  knee
+                ),
+              "Failed to apply compressor"
+            )
+          }
+          onLimiter={(threshold, release, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleLimiter(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  threshold,
+                  release
+                ),
+              "Failed to apply limiter"
+            )
+          }
+          onEq={(frequency, gain, q, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleEq(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  frequency,
+                  gain,
+                  q
+                ),
+              "Failed to apply EQ"
+            )
+          }
+          onHighPassFilter={(cutoffFrequency, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleHighPassFilter(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  cutoffFrequency
+                ),
+              "Failed to apply high-pass filter"
+            )
+          }
+          onLowPassFilter={(cutoffFrequency, scope) =>
+            handleOperation(
+              () =>
+                audioOps.handleLowPassFilter(
+                  scope,
+                  (trackId) => waveformMap().get(trackId) || null,
+                  cutoffFrequency
+                ),
+              "Failed to apply low-pass filter"
+            )
+          }
+          onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
+          onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
+          onPaste={createOperationHandler(
+            () => audioOps.handlePaste(waveformRef),
+            "Failed to paste"
+          )}
+          onDelete={createOperationHandler(
+            () => audioOps.handleDelete(waveformRef),
+            "Failed to delete"
+          )}
+          onSplit={async () => {
+            const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
+            if (!currentTrack?.audioBuffer) return;
 
-          const splitTime = store.selection?.start ?? store.currentTime;
-          if (splitTime <= 0 || splitTime >= currentTrack.duration) {
-            toast.addToast("Cannot split at this position");
-            return;
-          }
+            const splitTime = store.selection?.start ?? store.currentTime;
+            if (splitTime <= 0 || splitTime >= currentTrack.duration) {
+              toast.addToast("Cannot split at this position");
+              return;
+            }
 
-          try {
-            await splitTrack(currentTrack.id, splitTime);
-            toast.addToast("Track split successfully");
-          } catch (err) {
-            toast.addToast(getErrorMessage(err, "Failed to split track"));
-          }
-        }}
-        onHelpClick={() => setShowShortcuts(true)}
-        onSaveProject={handleSaveProject}
-        onLoadProject={handleLoadProject}
-      />
-      <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
-      <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />
-      <Show when={isLoading()}>
-        <div class="fixed inset-0 bg-black/50 z-[1500] flex items-center justify-center backdrop-blur-[2px]">
-          <Spinner size="large" />
-        </div>
-      </Show>
-      <ConfirmationDialog
-        isOpen={showResetDialog()}
-        title="Delete All"
-        message="Are you sure you want to delete everything? This will permanently delete all tracks and clear all progress."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        onConfirm={handleResetConfirm}
-        onCancel={() => setShowResetDialog(false)}
-      />
+            try {
+              await splitTrack(currentTrack.id, splitTime);
+              toast.addToast("Track split successfully");
+            } catch (err) {
+              toast.addToast(getErrorMessage(err, "Failed to split track"));
+            }
+          }}
+          onHelpClick={() => setShowShortcuts(true)}
+          onSaveProject={handleSaveProject}
+          onLoadProject={handleLoadProject}
+        />
+        <ToastContainer toasts={toast.toasts()} onDismiss={toast.removeToast} />
+        <KeyboardShortcuts isOpen={showShortcuts()} onClose={() => setShowShortcuts(false)} />
+        <Show when={isLoading()}>
+          <div class="fixed inset-0 bg-black/50 z-[1500] flex items-center justify-center backdrop-blur-[2px]">
+            <Spinner size="large" />
+          </div>
+        </Show>
+        <ConfirmationDialog
+          isOpen={showResetDialog()}
+          title="Delete All"
+          message="Are you sure you want to delete everything? This will permanently delete all tracks and clear all progress."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          onConfirm={handleResetConfirm}
+          onCancel={() => setShowResetDialog(false)}
+        />
       </Show>
     </main>
   );

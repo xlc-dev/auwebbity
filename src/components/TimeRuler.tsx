@@ -183,7 +183,6 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
     return { start: startPos, end: endPos };
   });
 
-
   return (
     <div
       class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden pointer-events-none"

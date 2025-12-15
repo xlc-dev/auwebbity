@@ -566,7 +566,6 @@ export const audioEffects = {
     const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
 
     const windowSize = Math.floor(buffer.sampleRate * 0.05);
-    const hopSize = Math.floor(windowSize / 2);
 
     for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
       const sourceData = buffer.getChannelData(channel);
@@ -606,16 +605,22 @@ export const audioEffects = {
       for (let i = 0; i < destData.length; i++) {
         let sum = 0;
         let count = 0;
-        for (let j = Math.max(0, i - smoothingWindow); j < Math.min(destData.length, i + smoothingWindow); j++) {
+        for (
+          let j = Math.max(0, i - smoothingWindow);
+          j < Math.min(destData.length, i + smoothingWindow);
+          j++
+        ) {
           sum += destData[j] ?? 0;
           count++;
         }
-        smoothed[i] = count > 0 ? sum / count : destData[i] ?? 0;
+        smoothed[i] = count > 0 ? sum / count : (destData[i] ?? 0);
       }
 
       for (let i = 0; i < destData.length; i++) {
-        destData[i] = smoothed[i] * 0.7 + destData[i] * 0.3;
-        destData[i] = Math.max(-1.0, Math.min(1.0, destData[i]));
+        const smoothedVal = smoothed[i] ?? 0;
+        const currentVal = destData[i] ?? 0;
+        destData[i] = smoothedVal * 0.7 + currentVal * 0.3;
+        destData[i] = Math.max(-1.0, Math.min(1.0, destData[i] ?? 0));
       }
     }
 
@@ -753,12 +758,13 @@ export const audioEffects = {
         for (let i = 0; i < windowSize; i++) {
           const sourceIndex = Math.floor(inputPos + i);
           if (sourceIndex < sourceData.length) {
-            windowed[i] = (sourceData[sourceIndex] ?? 0) * window[i];
+            windowed[i] = (sourceData[sourceIndex] ?? 0) * (window[i] ?? 0);
           }
         }
 
         for (let i = 0; i < windowSize && outputPos + i < originalLength; i++) {
-          destData[outputPos + i] = (destData[outputPos + i] ?? 0) + windowed[i];
+          const currentVal = destData[outputPos + i] ?? 0;
+          destData[outputPos + i] = currentVal + (windowed[i] ?? 0);
         }
 
         inputPos += hopSize;
@@ -768,7 +774,8 @@ export const audioEffects = {
       const maxOverlap = Math.ceil(windowSize / hopSize);
       if (maxOverlap > 1) {
         for (let i = 0; i < originalLength; i++) {
-          destData[i] = destData[i] / maxOverlap;
+          const currentVal = destData[i] ?? 0;
+          destData[i] = currentVal / maxOverlap;
         }
       }
 
@@ -804,7 +811,14 @@ export const audioEffects = {
 
     const { before, after } = await audioOperations.cut(buffer, start, end);
     const region = await audioOperations.copy(buffer, start, end);
-    const compressedRegion = await this.compressorFull(region, threshold, ratio, attack, release, knee);
+    const compressedRegion = await this.compressorFull(
+      region,
+      threshold,
+      ratio,
+      attack,
+      release,
+      knee
+    );
 
     return mergeAudioBuffers(
       before,
@@ -855,8 +869,6 @@ export const audioEffects = {
         if (absInput > kneeStart) {
           if (absInput < kneeEnd) {
             const overshoot = absInput - kneeStart;
-            const kneeRange = kneeEnd - kneeStart;
-            const kneeRatio = overshoot / kneeRange;
             const compressedOvershoot = overshoot / clampedRatio;
             const compressedLevel = kneeStart + compressedOvershoot;
             targetGain = compressedLevel / absInput;
@@ -947,6 +959,251 @@ export const audioEffects = {
         }
 
         destData[i] = Math.max(-1.0, Math.min(1.0, input * envelope));
+      }
+    }
+
+    return newBuffer;
+  },
+
+  async eq(
+    buffer: AudioBuffer,
+    frequency: number,
+    gain: number,
+    q: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.eqFull(buffer, frequency, gain, q);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const eqRegion = await this.eqFull(region, frequency, gain, q);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(eqRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async eqFull(
+    buffer: AudioBuffer,
+    frequency: number,
+    gain: number,
+    q: number
+  ): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0 || buffer.sampleRate <= 0) {
+      return buffer;
+    }
+
+    const clampedFreq = Math.max(20, Math.min(buffer.sampleRate / 2 - 1, frequency));
+    const clampedGain = Math.max(-20, Math.min(20, gain));
+    const clampedQ = Math.max(0.1, Math.min(30, q));
+
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    const sampleRate = buffer.sampleRate;
+
+    // Biquad filter coefficients for parametric EQ
+    const w0 = (2 * Math.PI * clampedFreq) / sampleRate;
+    const cosW0 = Math.cos(w0);
+    const sinW0 = Math.sin(w0);
+    const alpha = sinW0 / (2 * clampedQ);
+    const A = Math.pow(10, clampedGain / 40);
+
+    const b0 = 1 + alpha * A;
+    const b1 = -2 * cosW0;
+    const b2 = 1 - alpha * A;
+    const a0 = 1 + alpha / A;
+    const a1 = -2 * cosW0;
+    const a2 = 1 - alpha / A;
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+
+      let x1 = 0;
+      let x2 = 0;
+      let y1 = 0;
+      let y2 = 0;
+
+      for (let i = 0; i < sourceData.length; i++) {
+        const x0 = sourceData[i] ?? 0;
+        const y0 =
+          (b0 / a0) * x0 + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2;
+
+        destData[i] = Math.max(-1.0, Math.min(1.0, y0));
+
+        x2 = x1;
+        x1 = x0;
+        y2 = y1;
+        y1 = y0;
+      }
+    }
+
+    return newBuffer;
+  },
+
+  async highPassFilter(
+    buffer: AudioBuffer,
+    cutoffFrequency: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.highPassFilterFull(buffer, cutoffFrequency);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const filteredRegion = await this.highPassFilterFull(region, cutoffFrequency);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(filteredRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async highPassFilterFull(buffer: AudioBuffer, cutoffFrequency: number): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0 || buffer.sampleRate <= 0) {
+      return buffer;
+    }
+
+    const clampedFreq = Math.max(20, Math.min(buffer.sampleRate / 2 - 1, cutoffFrequency));
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    const sampleRate = buffer.sampleRate;
+
+    // Biquad high-pass filter coefficients
+    const w0 = (2 * Math.PI * clampedFreq) / sampleRate;
+    const cosW0 = Math.cos(w0);
+    const sinW0 = Math.sin(w0);
+    const alpha = sinW0 / 2;
+
+    const b0 = (1 + cosW0) / 2;
+    const b1 = -(1 + cosW0);
+    const b2 = (1 + cosW0) / 2;
+    const a0 = 1 + alpha;
+    const a1 = -2 * cosW0;
+    const a2 = 1 - alpha;
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+
+      let x1 = 0;
+      let x2 = 0;
+      let y1 = 0;
+      let y2 = 0;
+
+      for (let i = 0; i < sourceData.length; i++) {
+        const x0 = sourceData[i] ?? 0;
+        const y0 =
+          (b0 / a0) * x0 + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2;
+
+        destData[i] = Math.max(-1.0, Math.min(1.0, y0));
+
+        x2 = x1;
+        x1 = x0;
+        y2 = y1;
+        y1 = y0;
+      }
+    }
+
+    return newBuffer;
+  },
+
+  async lowPassFilter(
+    buffer: AudioBuffer,
+    cutoffFrequency: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.lowPassFilterFull(buffer, cutoffFrequency);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const filteredRegion = await this.lowPassFilterFull(region, cutoffFrequency);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(filteredRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async lowPassFilterFull(buffer: AudioBuffer, cutoffFrequency: number): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0 || buffer.sampleRate <= 0) {
+      return buffer;
+    }
+
+    const clampedFreq = Math.max(20, Math.min(buffer.sampleRate / 2 - 1, cutoffFrequency));
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+    const sampleRate = buffer.sampleRate;
+
+    // Biquad low-pass filter coefficients
+    const w0 = (2 * Math.PI * clampedFreq) / sampleRate;
+    const cosW0 = Math.cos(w0);
+    const sinW0 = Math.sin(w0);
+    const alpha = sinW0 / 2;
+
+    const b0 = (1 - cosW0) / 2;
+    const b1 = 1 - cosW0;
+    const b2 = (1 - cosW0) / 2;
+    const a0 = 1 + alpha;
+    const a1 = -2 * cosW0;
+    const a2 = 1 - alpha;
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+
+      let x1 = 0;
+      let x2 = 0;
+      let y1 = 0;
+      let y2 = 0;
+
+      for (let i = 0; i < sourceData.length; i++) {
+        const x0 = sourceData[i] ?? 0;
+        const y0 =
+          (b0 / a0) * x0 + (b1 / a0) * x1 + (b2 / a0) * x2 - (a1 / a0) * y1 - (a2 / a0) * y2;
+
+        destData[i] = Math.max(-1.0, Math.min(1.0, y0));
+
+        x2 = x1;
+        x1 = x0;
+        y2 = y1;
+        y1 = y0;
       }
     }
 

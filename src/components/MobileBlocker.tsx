@@ -20,11 +20,10 @@ export const MobileBlocker: Component = () => {
             <line x1="12" y1="18" x2="12.01" y2="18" />
           </svg>
         </div>
-        <h1 class="text-2xl font-bold text-[var(--color-text)] mb-4">
-          Mobile Not Supported
-        </h1>
+        <h1 class="text-2xl font-bold text-[var(--color-text)] mb-4">Mobile Not Supported</h1>
         <p class="text-[var(--color-text-secondary)]">
-          This app isn't supported for mobile devices. Please access this application from a desktop or laptop computer.
+          This app isn't supported for mobile devices. Please access this application from a desktop
+          or laptop computer.
         </p>
       </div>
     </div>
