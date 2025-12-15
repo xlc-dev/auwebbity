@@ -42,6 +42,8 @@ interface ToolbarProps {
   onNoiseReduction: (reductionAmount: number, scope: "all" | "track" | "selection") => void;
   onChangeSpeed: (speedFactor: number, scope: "all" | "track" | "selection") => void;
   onChangePitch: (pitchFactor: number, scope: "all" | "track" | "selection") => void;
+  onCompressor: (threshold: number, ratio: number, attack: number, release: number, knee: number, scope: "all" | "track" | "selection") => void;
+  onLimiter: (threshold: number, release: number, scope: "all" | "track" | "selection") => void;
   onCut: () => void;
   onCopy: () => void;
   onPaste: () => void;
@@ -247,6 +249,8 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             onNoiseReduction={props.onNoiseReduction}
             onChangeSpeed={props.onChangeSpeed}
             onChangePitch={props.onChangePitch}
+            onCompressor={props.onCompressor}
+            onLimiter={props.onLimiter}
             disabled={props.isExporting || !getCurrentTrack()}
           />
         </div>

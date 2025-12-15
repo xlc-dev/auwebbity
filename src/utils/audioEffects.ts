@@ -779,4 +779,177 @@ export const audioEffects = {
 
     return newBuffer;
   },
+
+  async compressor(
+    buffer: AudioBuffer,
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number,
+    knee: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.compressorFull(buffer, threshold, ratio, attack, release, knee);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const compressedRegion = await this.compressorFull(region, threshold, ratio, attack, release, knee);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(compressedRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async compressorFull(
+    buffer: AudioBuffer,
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number,
+    knee: number
+  ): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0) {
+      return buffer;
+    }
+
+    const clampedThreshold = Math.max(-60, Math.min(0, threshold));
+    const clampedRatio = Math.max(1, Math.min(20, ratio));
+    const clampedAttack = Math.max(0.0001, Math.min(1, attack));
+    const clampedRelease = Math.max(0.01, Math.min(5, release));
+    const clampedKnee = Math.max(0, Math.min(12, knee));
+
+    const thresholdLinear = Math.pow(10, clampedThreshold / 20);
+    const kneeStart = thresholdLinear * Math.pow(10, -clampedKnee / 20);
+    const kneeEnd = thresholdLinear * Math.pow(10, clampedKnee / 20);
+
+    const attackCoeff = Math.exp(-1 / (clampedAttack * buffer.sampleRate));
+    const releaseCoeff = Math.exp(-1 / (clampedRelease * buffer.sampleRate));
+
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+      let envelope = 0;
+
+      for (let i = 0; i < sourceData.length; i++) {
+        const input = sourceData[i] ?? 0;
+        const absInput = Math.abs(input);
+
+        let targetGain = 1.0;
+
+        if (absInput > kneeStart) {
+          if (absInput < kneeEnd) {
+            const overshoot = absInput - kneeStart;
+            const kneeRange = kneeEnd - kneeStart;
+            const kneeRatio = overshoot / kneeRange;
+            const compressedOvershoot = overshoot / clampedRatio;
+            const compressedLevel = kneeStart + compressedOvershoot;
+            targetGain = compressedLevel / absInput;
+          } else {
+            const overshoot = absInput - thresholdLinear;
+            const compressedOvershoot = overshoot / clampedRatio;
+            const compressedLevel = thresholdLinear + compressedOvershoot;
+            targetGain = compressedLevel / absInput;
+          }
+        }
+
+        if (targetGain < envelope) {
+          envelope = targetGain + (envelope - targetGain) * attackCoeff;
+        } else {
+          envelope = targetGain + (envelope - targetGain) * releaseCoeff;
+        }
+
+        destData[i] = Math.max(-1.0, Math.min(1.0, input * envelope));
+      }
+    }
+
+    return newBuffer;
+  },
+
+  async limiter(
+    buffer: AudioBuffer,
+    threshold: number,
+    release: number,
+    startTime?: number,
+    endTime?: number
+  ): Promise<AudioBuffer> {
+    const duration = buffer.duration;
+    const start = startTime ?? 0;
+    const end = endTime ?? duration;
+
+    if (start >= end || start < 0 || end > duration) {
+      return buffer;
+    }
+
+    if (start === 0 && end >= duration) {
+      return this.limiterFull(buffer, threshold, release);
+    }
+
+    const { before, after } = await audioOperations.cut(buffer, start, end);
+    const region = await audioOperations.copy(buffer, start, end);
+    const limitedRegion = await this.limiterFull(region, threshold, release);
+
+    return mergeAudioBuffers(
+      before,
+      mergeAudioBuffers(limitedRegion, after, buffer.numberOfChannels, buffer.sampleRate),
+      buffer.numberOfChannels,
+      buffer.sampleRate
+    );
+  },
+
+  async limiterFull(buffer: AudioBuffer, threshold: number, release: number): Promise<AudioBuffer> {
+    if (!buffer || buffer.length === 0) {
+      return buffer;
+    }
+
+    const clampedThreshold = Math.max(-60, Math.min(0, threshold));
+    const clampedRelease = Math.max(0.001, Math.min(1, release));
+
+    const thresholdLinear = Math.pow(10, clampedThreshold / 20);
+    const releaseCoeff = Math.exp(-1 / (clampedRelease * buffer.sampleRate));
+    const attackCoeff = Math.exp(-1 / (0.0001 * buffer.sampleRate));
+
+    const newBuffer = createAudioBuffer(buffer.numberOfChannels, buffer.length, buffer.sampleRate);
+
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      const sourceData = buffer.getChannelData(channel);
+      const destData = newBuffer.getChannelData(channel);
+      let envelope = 1.0;
+
+      for (let i = 0; i < sourceData.length; i++) {
+        const input = sourceData[i] ?? 0;
+        const absInput = Math.abs(input);
+
+        let targetGain = 1.0;
+        if (absInput > thresholdLinear) {
+          targetGain = thresholdLinear / absInput;
+        }
+
+        if (targetGain < envelope) {
+          envelope = targetGain + (envelope - targetGain) * attackCoeff;
+        } else {
+          envelope = targetGain + (envelope - targetGain) * releaseCoeff;
+        }
+
+        destData[i] = Math.max(-1.0, Math.min(1.0, input * envelope));
+      }
+    }
+
+    return newBuffer;
+  },
 };

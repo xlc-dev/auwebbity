@@ -544,6 +544,33 @@ export default function App() {
             "Failed to change pitch"
           )
         }
+        onCompressor={(threshold, ratio, attack, release, knee, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleCompressor(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                threshold,
+                ratio,
+                attack,
+                release,
+                knee
+              ),
+            "Failed to apply compressor"
+          )
+        }
+        onLimiter={(threshold, release, scope) =>
+          handleOperation(
+            () =>
+              audioOps.handleLimiter(
+                scope,
+                (trackId) => waveformMap().get(trackId) || null,
+                threshold,
+                release
+              ),
+            "Failed to apply limiter"
+          )
+        }
         onCut={createOperationHandler(() => audioOps.handleCut(waveformRef), "Failed to cut")}
         onCopy={createOperationHandler(() => audioOps.handleCopy(waveformRef), "Failed to copy")}
         onPaste={createOperationHandler(() => audioOps.handlePaste(waveformRef), "Failed to paste")}

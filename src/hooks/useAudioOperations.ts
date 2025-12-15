@@ -308,6 +308,31 @@ export const useAudioOperations = () => {
     );
   };
 
+  const handleCompressor = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    threshold: number,
+    ratio: number,
+    attack: number,
+    release: number,
+    knee: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.compressor(buffer, threshold, ratio, attack, release, knee, start, end)
+    );
+  };
+
+  const handleLimiter = async (
+    scope: "all" | "track" | "selection",
+    waveformRef: (trackId: string) => ReturnType<typeof import("./useWaveform").useWaveform> | null,
+    threshold: number,
+    release: number
+  ) => {
+    await applyEffect(scope, waveformRef, (buffer, start, end) =>
+      audioEffects.limiter(buffer, threshold, release, start, end)
+    );
+  };
+
   return {
     handleCut,
     handleCopy,
@@ -324,6 +349,8 @@ export const useAudioOperations = () => {
     handleNoiseReduction,
     handleChangeSpeed,
     handleChangePitch,
+    handleCompressor,
+    handleLimiter,
     isLoading,
   };
 };
