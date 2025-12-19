@@ -3,7 +3,7 @@ import { audioOperations } from "../utils/audioOperations";
 import { cloneAudioBuffer } from "../utils/audioBuffer";
 import { exportProject, importProject, downloadProject } from "../utils/project";
 import { getAudioContext } from "../utils/audioContext";
-import { cloneTrackWithBuffer, createTrackFromBufferWithUrl } from "../utils/trackHelpers";
+import { cloneTrackWithBuffer } from "../utils/trackHelpers";
 
 export interface AudioTrack {
   id: string;
@@ -878,7 +878,6 @@ export const useAudioStore = () => {
     setAudioStore("currentTrackId", newId);
     scheduleSave();
   };
-
 
   const saveProject = async (): Promise<void> => {
     const projectName = audioStore.projectName.trim();

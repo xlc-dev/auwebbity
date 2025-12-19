@@ -365,10 +365,30 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
 
   return (
     <div
-      class="flex border-b border-[var(--color-border)] min-h-[150px] sm:min-h-[180px] md:min-h-[200px]"
+      class="flex border-b border-[var(--color-border)] min-h-[150px] sm:min-h-[180px] md:min-h-[200px] relative group cursor-pointer transition-all"
       classList={{
         "opacity-50": props.isDragging,
+        "bg-[var(--color-bg-elevated)]": props.isCurrent,
+        "hover:bg-[var(--color-bg-elevated)]": !props.isCurrent,
+        "before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-[var(--color-primary)] before:z-10":
+          props.isCurrent,
       }}
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        if (
+          !target.closest("button") &&
+          !target.closest("input") &&
+          !target.closest('[draggable="true"]') &&
+          !target.closest('[class*="slider"]') &&
+          !target.closest("[data-pan-thumb]") &&
+          !target.closest("[data-volume-thumb]")
+        ) {
+          props.onSelect();
+        }
+      }}
+      title={
+        props.isCurrent ? "Current track (click to deselect)" : "Click to select as current track"
+      }
     >
       <div
         class="w-48 sm:w-56 md:w-64 border-r border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex flex-col p-2 sm:p-3 flex-shrink-0 relative"
@@ -402,7 +422,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                 when={isEditing()}
                 fallback={
                   <>
-                    <button onClick={() => props.onSelect()} class="w-full text-left pt-0.5">
+                    <div class="w-full text-left pt-0.5">
                       <div
                         onClick={(e) => {
                           e.stopPropagation();
@@ -412,7 +432,7 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
                       >
                         {props.track.name}
                       </div>
-                    </button>
+                    </div>
                     <div class="text-xs text-[var(--color-text)] space-y-0.5 opacity-70 mt-1">
                       <div>Duration: {formatTime(props.track.duration)}</div>
                       <Show when={props.track.audioBuffer}>
@@ -1054,10 +1074,8 @@ const TrackRow: Component<TrackRowPropsWithCallback> = (props) => {
             "min-width": trackWidth(),
           }}
           onClick={(e) => {
-            if (!props.isCurrent) {
-              e.stopPropagation();
-              props.onSelect();
-            }
+            e.stopPropagation();
+            props.onSelect();
           }}
         />
       </div>
@@ -1093,10 +1111,35 @@ export const MultiTrackView: Component<MultiTrackViewProps> = (props) => {
   const { visibleTracks } = useViewportTracks(() => store.tracks, tracksContainerRef);
 
   const handleContainerRef = (el: HTMLDivElement) => {
-    if (!mainContainerRef()) {
+    if (el) {
       setMainContainerRef(el);
     }
   };
+
+  // Ensure container ref is set when tracks are added
+  createEffect(() => {
+    const tracks = store.tracks;
+    if (tracks.length > 0 && !mainContainerRef()) {
+      // Wait for first track to render and set the ref
+      const timeoutId = setTimeout(() => {
+        const container = tracksContainerRef();
+        if (container && !mainContainerRef()) {
+          const firstTrackRow = container.querySelector(
+            '[class*="flex"][class*="border-b"]'
+          ) as HTMLElement;
+          if (firstTrackRow) {
+            const waveformContainer = firstTrackRow.querySelector(
+              '[class*="min-h-"]'
+            ) as HTMLDivElement;
+            if (waveformContainer) {
+              setMainContainerRef(waveformContainer);
+            }
+          }
+        }
+      }, 50);
+      return () => clearTimeout(timeoutId);
+    }
+  });
 
   const maxDuration = createMemo(() => {
     const tracks = store.tracks;

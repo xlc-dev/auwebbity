@@ -107,6 +107,7 @@ export const useWaveform = (
   let mouseDownY = 0;
   let mouseDownTime = 0;
   let isDragging = false;
+  let wasManuallyPaused = false;
   const getRenderer = (): WaveformRenderer => {
     const renderer = options?.renderer;
     return typeof renderer === "function" ? renderer() : (renderer ?? "bars");
@@ -478,7 +479,7 @@ export const useWaveform = (
             return;
           }
 
-          if (isPlaying) {
+          if (isPlaying && isCurrent && !wasManuallyPaused) {
             try {
               if (duration > 0) {
                 const clampedTime = Math.max(0, Math.min(duration, currentTime));
@@ -494,7 +495,7 @@ export const useWaveform = (
                 }
               }
             } catch (err) {}
-          } else {
+          } else if (!isPlaying && isCurrent) {
             try {
               if (wavesurfer.isPlaying()) {
                 wavesurfer.pause();
@@ -1008,6 +1009,7 @@ export const useWaveform = (
   const play = () => {
     if (!wavesurfer || !isAudioLoaded) return;
     try {
+      wasManuallyPaused = false;
       if (customAudioContext && customAudioContext.state === "suspended") {
         customAudioContext.resume();
       }
@@ -1039,7 +1041,14 @@ export const useWaveform = (
   const pause = () => {
     if (!wavesurfer) return;
     try {
+      wasManuallyPaused = true;
       wavesurfer.pause();
+      if (isCurrent) {
+        setPlaying(false);
+      }
+      setTimeout(() => {
+        wasManuallyPaused = false;
+      }, 100);
     } catch {}
   };
 
@@ -1049,10 +1058,12 @@ export const useWaveform = (
       wavesurfer.stop();
       if (isCurrent) {
         setCurrentTime(0);
+        setPlaying(false);
       }
     } catch {
       if (isCurrent) {
         setCurrentTime(0);
+        setPlaying(false);
       }
     }
   };

@@ -177,7 +177,6 @@ export const audioWorkerClient = {
     return deserializeAudioBuffer(result);
   },
 
-
   async merge(
     before: AudioBuffer,
     after: AudioBuffer,

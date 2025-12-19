@@ -171,7 +171,6 @@ function paste(
   };
 }
 
-
 function merge(
   beforeSerialized: ReturnType<typeof serializeAudioBuffer>,
   afterSerialized: ReturnType<typeof serializeAudioBuffer>,

@@ -131,13 +131,32 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
       if (container) {
         const scrollContainer = container.parentElement;
         if (scrollContainer) {
-          requestAnimationFrame(() => {
-            const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
-            if (w > 0 && w !== width()) {
-              setWidth(w);
-            }
-          });
+          // Use a small delay to ensure DOM is updated after track addition
+          const timeoutId = setTimeout(() => {
+            requestAnimationFrame(() => {
+              const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
+              if (w > 0 && w !== width()) {
+                setWidth(w);
+              }
+            });
+          }, 0);
+          return () => clearTimeout(timeoutId);
         }
+      } else {
+        // Container ref not set yet, try again after a short delay
+        const timeoutId = setTimeout(() => {
+          const c = props.containerRef();
+          if (c) {
+            const scrollContainer = c.parentElement;
+            if (scrollContainer) {
+              const w = scrollContainer.offsetWidth || scrollContainer.clientWidth || 0;
+              if (w > 0 && w !== width()) {
+                setWidth(w);
+              }
+            }
+          }
+        }, 50);
+        return () => clearTimeout(timeoutId);
       }
     }
   });
@@ -221,65 +240,67 @@ export const TimeRuler: Component<TimeRulerProps> = (props) => {
   });
 
   return (
-    <div
-      class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden pointer-events-none"
-      style={{
-        width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%",
-        "max-width": "100%",
-      }}
-    >
-      {markers().map((marker) => {
-        const effWidth = effectiveWidth();
-        const constrainedPos =
-          effWidth > 0 ? Math.min(marker.position, effWidth - 1) : marker.position;
-        return (
-          <div
-            class="absolute top-0 h-full pointer-events-none"
-            style={{ left: `${constrainedPos}px` }}
-          >
-            <div class="w-px h-full bg-[var(--color-border)] opacity-30" />
-            <span class="absolute top-0.5 left-0.5 text-[0.5rem] sm:text-[0.625rem] font-medium text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
-              {formatTime(marker.time)}
-            </span>
-          </div>
-        );
-      })}
-      <Show when={store.repeatRegion && repeatMarkerPositions()}>
-        {(pos) => {
-          const effWidth = effectiveWidth();
-          const startPos = Math.max(6, Math.min(pos().start, effWidth - 6));
-          const endPos = Math.max(6, Math.min(pos().end, effWidth - 6));
-          return (
-            <>
-              <div
-                class="absolute top-0 w-0 h-0 border-r-[6px] border-r-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
-                style={{ left: `${startPos - 6}px` }}
-              />
-              <div
-                class="absolute top-0 w-0 h-0 border-l-[6px] border-l-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
-                style={{ left: `${endPos}px` }}
-              />
-            </>
-          );
+    <Show when={duration() > 0}>
+      <div
+        class="relative w-full h-7 sm:h-8 border-b border-[var(--color-border)] bg-[var(--color-bg-elevated)] flex-shrink-0 overflow-hidden pointer-events-none"
+        style={{
+          width: effectiveWidth() > 0 ? `${effectiveWidth()}px` : "100%",
+          "max-width": "100%",
         }}
-      </Show>
-      <For each={markerPositions()}>
-        {(marker) => {
+      >
+        {markers().map((marker) => {
           const effWidth = effectiveWidth();
-          const constrainedPos = Math.max(0, Math.min(marker.position, effWidth - 1));
+          const constrainedPos =
+            effWidth > 0 ? Math.min(marker.position, effWidth - 1) : marker.position;
           return (
             <div
-              class="absolute top-0 w-0 h-0 border-l-[4px] border-l-blue-500 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent z-[20] cursor-pointer hover:border-l-blue-400 hover:scale-110 transition-all pointer-events-auto"
+              class="absolute top-0 h-full pointer-events-none"
               style={{ left: `${constrainedPos}px` }}
-              onClick={(e) => {
-                e.stopPropagation();
-                removeMarker(marker.time);
-              }}
-              title="Click to delete marker"
-            />
+            >
+              <div class="w-px h-full bg-[var(--color-border)] opacity-30" />
+              <span class="absolute top-0.5 left-0.5 text-[0.5rem] sm:text-[0.625rem] font-medium text-[var(--color-text-secondary)] tabular-nums whitespace-nowrap">
+                {formatTime(marker.time)}
+              </span>
+            </div>
           );
-        }}
-      </For>
-    </div>
+        })}
+        <Show when={store.repeatRegion && repeatMarkerPositions()}>
+          {(pos) => {
+            const effWidth = effectiveWidth();
+            const startPos = Math.max(6, Math.min(pos().start, effWidth - 6));
+            const endPos = Math.max(6, Math.min(pos().end, effWidth - 6));
+            return (
+              <>
+                <div
+                  class="absolute top-0 w-0 h-0 border-r-[6px] border-r-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
+                  style={{ left: `${startPos - 6}px` }}
+                />
+                <div
+                  class="absolute top-0 w-0 h-0 border-l-[6px] border-l-yellow-500 border-t-[8px] border-t-transparent border-b-[8px] border-b-transparent z-[25] pointer-events-none"
+                  style={{ left: `${endPos}px` }}
+                />
+              </>
+            );
+          }}
+        </Show>
+        <For each={markerPositions()}>
+          {(marker) => {
+            const effWidth = effectiveWidth();
+            const constrainedPos = Math.max(0, Math.min(marker.position, effWidth - 1));
+            return (
+              <div
+                class="absolute top-0 w-0 h-0 border-l-[4px] border-l-blue-500 border-t-[6px] border-t-transparent border-b-[6px] border-b-transparent z-[20] cursor-pointer hover:border-l-blue-400 hover:scale-110 transition-all pointer-events-auto"
+                style={{ left: `${constrainedPos}px` }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeMarker(marker.time);
+                }}
+                title="Click to delete marker"
+              />
+            );
+          }}
+        </For>
+      </div>
+    </Show>
   );
 };

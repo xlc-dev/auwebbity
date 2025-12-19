@@ -6,13 +6,14 @@ type WaveformRef = ReturnType<typeof useWaveform> | null;
 type WaveformMap = Map<string, WaveformRef>;
 
 export const useWaveformManager = (waveformMap: Accessor<WaveformMap>) => {
-  const { store } = useAudioStore();
+  const { store, setPlaying } = useAudioStore();
 
   const playAllTracks = () => {
     const map = waveformMap();
     const tracks = store.tracks;
     const trackMap = new Map(tracks.map((t) => [t.id, t]));
     const hasSoloedTracks = tracks.some((t) => t.soloed);
+    let hasAnyPlaying = false;
 
     map.forEach((waveform, trackId) => {
       const track = trackMap.get(trackId);
@@ -22,10 +23,15 @@ export const useWaveformManager = (waveformMap: Accessor<WaveformMap>) => {
 
       if (shouldPlay) {
         waveform?.play();
+        hasAnyPlaying = true;
       } else {
         waveform?.pause();
       }
     });
+
+    if (hasAnyPlaying) {
+      setPlaying(true);
+    }
   };
 
   const pauseAllTracks = () => {
@@ -33,6 +39,7 @@ export const useWaveformManager = (waveformMap: Accessor<WaveformMap>) => {
     map.forEach((waveform) => {
       waveform?.pause();
     });
+    setPlaying(false);
   };
 
   const stopAllTracks = () => {
@@ -40,6 +47,7 @@ export const useWaveformManager = (waveformMap: Accessor<WaveformMap>) => {
     map.forEach((waveform) => {
       waveform?.stop();
     });
+    setPlaying(false);
   };
 
   const seekAllTracks = (time: number) => {
