@@ -879,60 +879,6 @@ export const useAudioStore = () => {
     scheduleSave();
   };
 
-  const splitTrack = async (trackId: string, splitTime: number) => {
-    const track = audioStore.tracks.find((t) => t.id === trackId);
-    if (!track || !track.audioBuffer) return;
-
-    if (splitTime <= 0 || splitTime >= track.duration) return;
-
-    await saveToHistory();
-
-    const { left, right } = await audioOperations.split(track.audioBuffer, splitTime);
-
-    const { track: leftTrackData, audioUrl: leftUrl } = await createTrackFromBufferWithUrl(
-      left,
-      `${track.name} (1)`,
-      track
-    );
-    const { track: rightTrackData, audioUrl: rightUrl } = await createTrackFromBufferWithUrl(
-      right,
-      `${track.name} (2)`,
-      track
-    );
-
-    const leftId = crypto.randomUUID();
-    const rightId = crypto.randomUUID();
-
-    const leftTrack: AudioTrack = {
-      ...leftTrackData,
-      id: leftId,
-      audioUrl: leftUrl,
-    };
-
-    const rightTrack: AudioTrack = {
-      ...rightTrackData,
-      id: rightId,
-      audioUrl: rightUrl,
-    };
-
-    const trackIndex = audioStore.tracks.findIndex((t) => t.id === trackId);
-    if (track.audioUrl) {
-      URL.revokeObjectURL(track.audioUrl);
-    }
-
-    setAudioStore("tracks", (tracks) => {
-      const newTracks = [...tracks];
-      newTracks.splice(trackIndex, 1, leftTrack, rightTrack);
-      return newTracks;
-    });
-
-    if (audioStore.currentTrackId === trackId) {
-      setAudioStore("currentTrackId", leftId);
-    }
-
-    setAudioStore("selection", null);
-    scheduleSave();
-  };
 
   const saveProject = async (): Promise<void> => {
     const projectName = audioStore.projectName.trim();
@@ -996,7 +942,6 @@ export const useAudioStore = () => {
     deleteTrack,
     reorderTracks,
     duplicateTrack,
-    splitTrack,
     saveProject,
     loadProject,
   };

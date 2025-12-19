@@ -31,7 +31,6 @@ export default function App() {
     clearMarkers,
     saveProject,
     loadProject,
-    splitTrack,
     getCurrentTrack,
   } = useAudioStore();
   const recorder = useAudioRecorder();
@@ -594,23 +593,6 @@ export default function App() {
             () => audioOps.handleDelete(waveformRef),
             "Failed to delete"
           )}
-          onSplit={async () => {
-            const currentTrack = store.tracks.find((t) => t.id === store.currentTrackId);
-            if (!currentTrack?.audioBuffer) return;
-
-            const splitTime = store.selection?.start ?? store.currentTime;
-            if (splitTime <= 0 || splitTime >= currentTrack.duration) {
-              toast.addToast("Cannot split at this position");
-              return;
-            }
-
-            try {
-              await splitTrack(currentTrack.id, splitTime);
-              toast.addToast("Track split successfully");
-            } catch (err) {
-              toast.addToast(getErrorMessage(err, "Failed to split track"));
-            }
-          }}
           onHelpClick={() => setShowShortcuts(true)}
           onSaveProject={handleSaveProject}
           onLoadProject={handleLoadProject}

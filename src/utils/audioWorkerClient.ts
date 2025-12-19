@@ -177,23 +177,6 @@ export const audioWorkerClient = {
     return deserializeAudioBuffer(result);
   },
 
-  async split(
-    audioBuffer: AudioBuffer,
-    splitTime: number
-  ): Promise<{ left: AudioBuffer; right: AudioBuffer }> {
-    const serialized = serializeAudioBuffer(audioBuffer);
-    const result = await sendMessage<{
-      left: ReturnType<typeof serializeAudioBuffer>;
-      right: ReturnType<typeof serializeAudioBuffer>;
-    }>("split", {
-      buffer: serialized,
-      splitTime,
-    });
-    return {
-      left: deserializeAudioBuffer(result.left),
-      right: deserializeAudioBuffer(result.right),
-    };
-  },
 
   async merge(
     before: AudioBuffer,

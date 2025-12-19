@@ -62,7 +62,6 @@ interface ToolbarProps {
   onCopy: () => void;
   onPaste: () => void;
   onDelete: () => void;
-  onSplit?: () => void;
   onHelpClick?: () => void;
   onSaveProject?: () => void;
   onLoadProject?: () => void;
@@ -173,26 +172,6 @@ export const Toolbar: Component<ToolbarProps> = (props) => {
             disabled={!hasSelection()}
             variant="secondary"
           />
-          <Show when={props.onSplit}>
-            <Button
-              icon={
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <path d="M12 3v18M3 12h18" />
-                </svg>
-              }
-              label="Split Track"
-              onClick={props.onSplit!}
-              disabled={!getCurrentTrack()?.audioBuffer}
-              variant="secondary"
-            />
-          </Show>
         </div>
 
         <Separator />

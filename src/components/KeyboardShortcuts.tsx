@@ -148,8 +148,7 @@ export const KeyboardShortcuts: Component<KeyboardShortcutsProps> = (props) => {
                 <div>
                   <h3 class="text-base font-semibold mb-2">Editing Operations</h3>
                   <p class="text-sm text-[var(--color-text-secondary)] mb-2">
-                    Cut, copy, paste, and delete selections. All operations support undo/redo. Use
-                    the split button to divide a track at the current position or selection start.
+                    Cut, copy, paste, and delete selections. All operations support undo/redo.
                   </p>
                 </div>
                 <div>

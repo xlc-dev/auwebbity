@@ -1,6 +1,6 @@
 export interface AudioWorkerMessage {
   id: string;
-  type: "copy" | "cut" | "paste" | "split" | "merge";
+  type: "copy" | "cut" | "paste" | "merge";
   data: any;
 }
 
@@ -171,58 +171,6 @@ function paste(
   };
 }
 
-function split(
-  serializedBuffer: ReturnType<typeof serializeAudioBuffer>,
-  splitTime: number
-): {
-  left: ReturnType<typeof serializeAudioBuffer>;
-  right: ReturnType<typeof serializeAudioBuffer>;
-} {
-  const { channelData, sampleRate, numberOfChannels, length } = serializedBuffer;
-  const splitSample = Math.floor(splitTime * sampleRate);
-
-  const leftLength = Math.max(1, splitSample);
-  const rightLength = Math.max(1, length - splitSample);
-
-  const leftChannelData: Float32Array[] = [];
-  const rightChannelData: Float32Array[] = [];
-
-  for (let channel = 0; channel < numberOfChannels; channel++) {
-    const sourceData = channelData[channel];
-    if (!sourceData) {
-      leftChannelData.push(new Float32Array(leftLength));
-      rightChannelData.push(new Float32Array(rightLength));
-      continue;
-    }
-
-    const leftData = new Float32Array(leftLength);
-    for (let i = 0; i < leftLength; i++) {
-      leftData[i] = sourceData[i] ?? 0;
-    }
-    leftChannelData.push(leftData);
-
-    const rightData = new Float32Array(rightLength);
-    for (let i = 0; i < rightLength; i++) {
-      rightData[i] = sourceData[splitSample + i] ?? 0;
-    }
-    rightChannelData.push(rightData);
-  }
-
-  return {
-    left: {
-      channelData: leftChannelData,
-      sampleRate,
-      numberOfChannels,
-      length: leftLength,
-    },
-    right: {
-      channelData: rightChannelData,
-      sampleRate,
-      numberOfChannels,
-      length: rightLength,
-    },
-  };
-}
 
 function merge(
   beforeSerialized: ReturnType<typeof serializeAudioBuffer>,
@@ -281,9 +229,6 @@ self.onmessage = (e: MessageEvent<AudioWorkerMessage>) => {
       case "paste":
         result = paste(data.originalBuffer, data.clipboardBuffer, data.insertTime);
         break;
-      case "split":
-        result = split(data.buffer, data.splitTime);
-        break;
       case "merge":
         result = merge(data.beforeBuffer, data.afterBuffer, data.numberOfChannels, data.sampleRate);
         break;
@@ -307,13 +252,6 @@ self.onmessage = (e: MessageEvent<AudioWorkerMessage>) => {
         transferables.push(arr.buffer);
       });
       result.after.channelData.forEach((arr: Float32Array) => {
-        transferables.push(arr.buffer);
-      });
-    } else if (result.left?.channelData) {
-      result.left.channelData.forEach((arr: Float32Array) => {
-        transferables.push(arr.buffer);
-      });
-      result.right.channelData.forEach((arr: Float32Array) => {
         transferables.push(arr.buffer);
       });
     }
